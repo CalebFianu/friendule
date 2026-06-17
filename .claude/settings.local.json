@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Read(//c/Users/Caleb/Desktop/Projects/Friendule-react/**)",
+      "Bash(npm install:*)",
+      "Bash(cp /c/Users/Caleb/Desktop/Projects/Friendule-react/.gitignore /c/Users/Caleb/Desktop/Projects/Friendule/)",
+      "Bash(cp /c/Users/Caleb/Desktop/Projects/Friendule-react/eslint.config.js /c/Users/Caleb/Desktop/Projects/Friendule/)",
+      "Bash(cp /c/Users/Caleb/Desktop/Projects/Friendule-react/index.html /c/Users/Caleb/Desktop/Projects/Friendule/)",
+      "Bash(cp /c/Users/Caleb/Desktop/Projects/Friendule-react/package.json /c/Users/Caleb/Desktop/Projects/Friendule/)",
+      "Bash(cp /c/Users/Caleb/Desktop/Projects/Friendule-react/package-lock.json /c/Users/Caleb/Desktop/Projects/Friendule/)",
+      "Bash(npx vite:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(node server.js)",
+      "Bash(curl -s http://localhost:4000/health)",
+      "Bash(python -m json.tool)",
+      "Bash(curl:*)",
+      "Bash(npm uninstall:*)"
+    ]
+  }
+}
