@@ -1,9 +1,15 @@
 const { Router } = require('express');
 const Anthropic = require('@anthropic-ai/sdk').default;
+const Groq = require('groq-sdk');
 
 const router = Router();
 
-const client = new Anthropic();
+const anthropic = new Anthropic();
+let groqClient = null;
+function getGroq() {
+  if (!groqClient) groqClient = new Groq();
+  return groqClient;
+}
 
 const SYSTEM_PROMPT = `You are a schedule assistant for a social calendar app called Friendule.
 Your job is to understand what the user wants to do with a friend's schedule and return structured JSON.
@@ -127,14 +133,28 @@ router.post('/', async (req, res) => {
     .replace('{{EXISTING_RULES_CONTEXT}}', existingRulesContext);
 
   try {
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: text.trim() }],
-    });
-
-    const raw = message.content[0].text.trim();
+    let raw;
+    try {
+      const completion = await getGroq().chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text.trim() },
+        ],
+        response_format: { type: 'json_object' },
+        max_tokens: 4096,
+      });
+      raw = completion.choices[0].message.content.trim();
+    } catch (groqErr) {
+      console.warn('[parse] Groq failed, falling back to Claude:', groqErr.message);
+      const message = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: text.trim() }],
+      });
+      raw = message.content[0].text.trim();
+    }
 
     let parsed;
     try {

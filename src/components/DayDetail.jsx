@@ -26,15 +26,15 @@ export default function DayDetail({ dayDetail, closeDay }) {
                       ? { fontSize: '11px', fontWeight: 800, color: '#C0563E', background: '#FBEDE7', padding: '1px 8px', borderRadius: '999px' }
                       : row.together
                       ? { fontSize: '11px', fontWeight: 800, color: '#A0357A', background: '#FDE8F5', padding: '1px 8px', borderRadius: '999px' }
-                      : { fontSize: '11px', fontWeight: 800, color: '#4F9A60', background: '#EAF6EC', padding: '1px 8px', borderRadius: '999px' }
+                      : { fontSize: '11px', fontWeight: 800, color: '#2A7A50', background: '#E6F4ED', padding: '1px 8px', borderRadius: '999px' }
                     }>{row.busy ? 'Busy' : row.together ? 'Together' : 'Free'}</span>
                   </div>
                   <div style={{ marginTop: '5px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                     {row.evs.map(e => (
                       <div key={e.id} style={{
                         fontSize: '12.5px', fontWeight: 700,
-                        color: e.status === 'busy' ? '#7A6B5D' : e.status === 'together' ? '#A0357A' : cs.deep,
-                        background: e.status === 'busy' ? '#F6EFE6' : e.status === 'together' ? '#FDE8F5' : cs.tint,
+                        color: e.status === 'busy' ? '#7A6B5D' : e.status === 'together' ? '#A0357A' : '#2A7A50',
+                        background: e.status === 'busy' ? '#F6EFE6' : e.status === 'together' ? '#FDE8F5' : '#E6F4ED',
                         borderRadius: '7px', padding: '2px 8px', display: 'inline-block', width: 'fit-content'
                       }}>
                         {(e.allDay ? 'All day' : fmtTime(e.startMin) + '–' + fmtTime(e.endMin)) + ' · ' + e.title}

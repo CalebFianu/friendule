@@ -93,9 +93,9 @@ export default function WeekView({ cur, friend, instances, openFriendDay, openEd
                   const top = Math.max(0, ((e.startMin - RAIL_START * 60) / 60) * HOUR_PX);
                   const bottom = ((Math.min(e.endMin, RAIL_END * 60) - RAIL_START * 60) / 60) * HOUR_PX;
                   const cs = friend.colorset;
-                  const timedBg = e.status === 'busy' ? cs.solid : e.status === 'together' ? '#FDE8F5' : cs.tint;
-                  const timedColor = e.status === 'busy' ? '#fff' : e.status === 'together' ? '#A0357A' : cs.deep;
-                  const timedBorder = e.status === 'busy' ? 'none' : e.status === 'together' ? '1px dashed #F3BBE0' : '1px dashed ' + cs.tintBorder;
+                  const timedBg = e.status === 'busy' ? cs.solid : e.status === 'together' ? '#FDE8F5' : '#E6F4ED';
+                  const timedColor = e.status === 'busy' ? '#fff' : e.status === 'together' ? '#A0357A' : '#2A7A50';
+                  const timedBorder = e.status === 'busy' ? 'none' : e.status === 'together' ? '1px dashed #F3BBE0' : '1px dashed #9ECDB0';
                   return (
                     <div key={e.id} onClick={ev => { ev.stopPropagation(); openEdit(e); }} style={{
                       position: 'absolute', top: top + 'px', height: Math.max(20, bottom - top) + 'px',

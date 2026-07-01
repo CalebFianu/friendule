@@ -26,7 +26,7 @@ function chipStyle(e, f) {
   if (e.status === 'together') {
     return { background: '#FDE8F5', color: '#A0357A', border: '1px solid #F3BBE0', borderRadius: '7px', padding: '1px 6px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: '1.55' };
   }
-  return { background: cs.tint, color: cs.deep, border: '1px solid ' + cs.tintBorder, borderRadius: '7px', padding: '1px 6px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: '1.55' };
+  return { background: '#E6F4ED', color: '#2A7A50', border: '1px solid #9ECDB0', borderRadius: '7px', padding: '1px 6px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: '1.55' };
 }
 
 export default function MonthGrid({ cur, friend, instances, openFriendDay, openEdit }) {

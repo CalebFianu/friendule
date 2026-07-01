@@ -3,7 +3,7 @@ import { prettyDate, fmtTime } from '../utils/dateUtils';
 function statusStyle(status) {
   if (status === 'busy') return { fontSize: '11px', fontWeight: 800, color: '#C0563E', background: '#FBEDE7', padding: '1px 8px', borderRadius: '999px' };
   if (status === 'together') return { fontSize: '11px', fontWeight: 800, color: '#A0357A', background: '#FDE8F5', padding: '1px 8px', borderRadius: '999px' };
-  return { fontSize: '11px', fontWeight: 800, color: '#4F9A60', background: '#EAF6EC', padding: '1px 8px', borderRadius: '999px' };
+  return { fontSize: '11px', fontWeight: 800, color: '#2A7A50', background: '#E6F4ED', padding: '1px 8px', borderRadius: '999px' };
 }
 
 function statusLabel(status) {
@@ -57,7 +57,7 @@ export default function FriendDayPanel({ friendDay, friend, openEdit, openNew, c
               onMouseEnter={ev => ev.currentTarget.style.background = '#FBF6F0'}
               onMouseLeave={ev => ev.currentTarget.style.background = ''}
             >
-              <div style={{ flex: '0 0 auto', width: '10px', height: '10px', borderRadius: '999px', background: e.status === 'busy' ? cs.solid : e.status === 'together' ? '#A0357A' : cs.deep }} />
+              <div style={{ flex: '0 0 auto', width: '10px', height: '10px', borderRadius: '999px', background: e.status === 'busy' ? cs.solid : e.status === 'together' ? '#A0357A' : '#4CAF72' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: '14px', color: '#3A322C', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
                 <div style={{ fontSize: '12px', fontWeight: 600, color: '#9A8E83', marginTop: '1px' }}>
