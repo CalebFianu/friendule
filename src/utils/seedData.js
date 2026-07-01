@@ -32,10 +32,6 @@ export function buildSeedRules() {
     id: id(), friendId: fid, recurrence: 'weekly', weekdays: wd, title, status,
     allDay: ts == null, timeStart: ts, timeEnd: te,
   });
-  const D = (fid, title, status, ts, te) => ({
-    id: id(), friendId: fid, recurrence: 'daily', title, status,
-    allDay: ts == null, timeStart: ts, timeEnd: te,
-  });
   return [
     W('maya', [1, 2, 3, 4, 5], 'Design work', 'busy', '09:00', '17:00'),
     W('maya', [2, 4], 'Yoga', 'busy', '18:00', '19:00'),

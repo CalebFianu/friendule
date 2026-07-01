@@ -1,4 +1,4 @@
-import { ymd, addDays, fmtTime, shortTime, pad, WEEKDAYS } from '../utils/dateUtils';
+import { ymd, addDays, fmtTime, WEEKDAYS } from '../utils/dateUtils';
 
 const HOUR_PX = 46;
 const RAIL_START = 6;
@@ -78,7 +78,7 @@ export default function WeekView({ cur, friend, instances, openFriendDay, openEd
           {/* Time grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '58px repeat(7,1fr)' }}>
             <div style={{ position: 'relative' }}>
-              {weekHours.map((h, hi) => (
+              {weekHours.map((h) => (
                 <div key={h.hour} style={{ height: HOUR_PX + 'px', fontSize: '10px', color: '#A99C8F', fontWeight: 700, textAlign: 'right', paddingRight: '7px', transform: 'translateY(-7px)' }}>{h.label}</div>
               ))}
             </div>

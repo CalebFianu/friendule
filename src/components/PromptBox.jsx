@@ -63,7 +63,7 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
       try {
         recognition.start();
         recognitionRef.current = recognition;
-      } catch (_) { /* browser may deny a second start */ }
+      } catch { /* browser may deny a second start */ }
     }
 
     // ── MediaRecorder — audio for Groq ────────────────────────────────────
@@ -108,10 +108,10 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
       recorder.start();
       recorderRef.current = recorder;
       setRecording(true);
-    } catch (err) {
+    } catch {
       // Stop recognition if mic access was denied
       if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (_) {}
+        try { recognitionRef.current.stop(); } catch { /* ignore */ }
         recognitionRef.current = null;
       }
       setMicError('Microphone access denied');
@@ -120,7 +120,7 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
 
   const stopRecording = () => {
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (_) {}
+      try { recognitionRef.current.stop(); } catch { /* ignore */ }
       recognitionRef.current = null;
     }
     if (recorderRef.current) {

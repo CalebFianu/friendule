@@ -6,6 +6,40 @@ import { PALETTE, makeColorset } from '../utils/seedData';
 const API_BASE = 'http://localhost:4000';
 const VIEWER_ZONE = getViewerZone();
 
+function toMins(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function timesOverlap(a, b) {
+  if (a.allDay || b.allDay) return true;
+  const aStart = toMins(a.timeStart);
+  const aEnd   = toMins(a.timeEnd);
+  const bStart = toMins(b.timeStart);
+  const bEnd   = toMins(b.timeEnd);
+  if (aStart === null || aEnd === null || bStart === null || bEnd === null) return true;
+  return aStart < bEnd && bStart < aEnd;
+}
+
+function rulesOverlap(a, b) {
+  let sharesDay;
+  if (a.recurrence === 'daily' || b.recurrence === 'daily') {
+    sharesDay = true;
+  } else if (a.recurrence === 'once' && b.recurrence === 'once') {
+    sharesDay = a.date === b.date;
+  } else if (a.recurrence === 'once' && b.recurrence === 'weekly') {
+    sharesDay = b.weekdays?.includes(parseYmd(a.date).getDay());
+  } else if (a.recurrence === 'weekly' && b.recurrence === 'once') {
+    sharesDay = a.weekdays?.includes(parseYmd(b.date).getDay());
+  } else if (a.recurrence === 'weekly' && b.recurrence === 'weekly') {
+    sharesDay = a.weekdays?.some(wd => b.weekdays?.includes(wd));
+  } else {
+    sharesDay = false;
+  }
+  return sharesDay && timesOverlap(a, b);
+}
+
 // Derive display-only fields that the backend doesn't store
 function hydrateFriend(f) {
   const words = f.name.split(/\s+/);
@@ -83,7 +117,7 @@ export function useFriendule() {
     }).finally(() => {
       setLoading(false);
     });
-  }, [auth?.token]);
+  }, [auth?.token, apiFetch, flash]);
 
   const cur = parseYmd(cursor);
   const friend = friends[friendIdx] || null;
@@ -114,43 +148,6 @@ export function useFriendule() {
     return expanded
       .filter(e => e.date === y)
       .sort((a, b) => (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || (a.startMin || 0) - (b.startMin || 0));
-  }
-
-  function toMins(hhmm) {
-    if (!hhmm) return null;
-    const [h, m] = hhmm.split(':').map(Number);
-    return h * 60 + m;
-  }
-
-  // Returns true if the time ranges of two rules overlap on days they share.
-  // All-day rules cover the full day and therefore always overlap time-wise.
-  function timesOverlap(a, b) {
-    if (a.allDay || b.allDay) return true;
-    const aStart = toMins(a.timeStart);
-    const aEnd   = toMins(a.timeEnd);
-    const bStart = toMins(b.timeStart);
-    const bEnd   = toMins(b.timeEnd);
-    if (aStart === null || aEnd === null || bStart === null || bEnd === null) return true;
-    return aStart < bEnd && bStart < aEnd;
-  }
-
-  // Returns true if two rules share at least one calendar day AND their time ranges overlap.
-  function rulesOverlap(a, b) {
-    let sharesDay;
-    if (a.recurrence === 'daily' || b.recurrence === 'daily') {
-      sharesDay = true;
-    } else if (a.recurrence === 'once' && b.recurrence === 'once') {
-      sharesDay = a.date === b.date;
-    } else if (a.recurrence === 'once' && b.recurrence === 'weekly') {
-      sharesDay = b.weekdays?.includes(parseYmd(a.date).getDay());
-    } else if (a.recurrence === 'weekly' && b.recurrence === 'once') {
-      sharesDay = a.weekdays?.includes(parseYmd(b.date).getDay());
-    } else if (a.recurrence === 'weekly' && b.recurrence === 'weekly') {
-      sharesDay = a.weekdays?.some(wd => b.weekdays?.includes(wd));
-    } else {
-      sharesDay = false;
-    }
-    return sharesDay && timesOverlap(a, b);
   }
 
   const friendConflicts = useMemo(() => {

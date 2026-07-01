@@ -1,5 +1,5 @@
 import { useFriendule } from './hooks/useFriendule';
-import { MONTHS, WEEKDAYS, addDays } from './utils/dateUtils';
+import { MONTHS, addDays } from './utils/dateUtils';
 import AuthScreen from './components/AuthScreen';
 import Header from './components/Header';
 import FriendSwitcher from './components/FriendSwitcher';
