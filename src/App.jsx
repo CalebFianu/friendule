@@ -91,6 +91,7 @@ export default function App() {
                   parsing={state.parsing}
                   clarification={state.clarification}
                   setClarification={state.setClarification}
+                  transcribe={state.transcribe}
                 />
 
                 {/* Controls */}

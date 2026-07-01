@@ -195,6 +195,13 @@ export function useFriendule() {
   };
   const clearEveryoneFilter = () => setEveryoneFilter([]);
 
+  const transcribe = useCallback(async (audioBase64, mimeType) => {
+    return apiFetch('/transcribe', {
+      method: 'POST',
+      body: JSON.stringify({ audio: audioBase64, mimeType }),
+    });
+  }, [apiFetch]);
+
   // Returns true if a rule matches the filter criteria from the LLM
   function matchesFilter(rule, filter) {
     if (!filter) return false;
@@ -572,7 +579,7 @@ export function useFriendule() {
     submitAuth, logout,
     tab, view, friendIdx, cursor, prompt, editor, dayDetail, friendDay, toast, addFriendModal, everyoneFilter,
     friends, rules, cur, friend, loading,
-    parsing, clarification, setClarification, confirmDialog,
+    parsing, clarification, setClarification, confirmDialog, transcribe,
     goFriends, goEveryone, setMonthView, setWeekView,
     prevFriend, nextFriend, pickFriend, goToday, prevPeriod, nextPeriod,
     setPrompt, commitPrompt,
