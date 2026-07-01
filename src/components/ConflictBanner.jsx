@@ -15,7 +15,7 @@ export default function ConflictBanner({ conflicts, deleteEvent, openEdit }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
         <span style={{ fontSize: '15px' }}>⚠</span>
         <span style={{ fontWeight: 800, fontSize: '13.5px', color: '#8B4513' }}>
-          {conflicts.length} conflicting rule{conflicts.length > 1 ? 's' : ''} — this friend can't be both busy and free on the same day
+          {conflicts.length} conflicting rule{conflicts.length > 1 ? 's' : ''} — busy and free times overlap
         </span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

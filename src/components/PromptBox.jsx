@@ -1,4 +1,4 @@
-const EXAMPLES = ['Busy weekdays 9\u20135', 'Gym Mon & Wed 7am', 'Free this weekend', 'Yoga Tue & Thu 6\u20137pm', 'Lunch Friday at noon'];
+const EXAMPLES = ['Busy weekdays 9\u20135', 'Gym Mon & Wed 7am', 'Free this weekend', 'Remove gym', 'Clear Monday events', 'Change work to 10\u20136'];
 
 export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, parsing, clarification, setClarification }) {
   const handleSubmit = () => {
@@ -10,7 +10,7 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
         <span style={{ fontSize: '15px' }}>{parsing ? '\u231B' : '\u2726'}</span>
         <span style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '.2px', whiteSpace: 'nowrap' }}>
-          Describe {friend.firstName}&apos;s schedule in words
+          Add, update or remove {friend.firstName}&apos;s schedule
         </span>
       </div>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'stretch' }}>
@@ -18,7 +18,7 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
           value={prompt}
           onChange={e => { setPrompt(e.target.value); if (clarification) setClarification(null); }}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); } }}
-          placeholder="e.g. Busy weekdays 9\u20135, gym Mon & Wed 7am, free this weekend"
+          placeholder="e.g. Busy weekdays 9\u20135 \u2022 Remove gym \u2022 Change work hours to 10\u20136"
           disabled={parsing}
           style={{
             flex: '1 1 320px', minWidth: 0, border: '1px solid #ECD9C8', background: parsing ? '#F9F3EC' : '#fff',
@@ -35,7 +35,7 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
           }}
           onClick={handleSubmit}
         >
-          {parsing ? 'Thinking\u2026' : 'Add to calendar'}
+          {parsing ? 'Thinking\u2026' : 'Submit'}
         </button>
       </div>
 
@@ -57,8 +57,8 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
           color: '#B6A99C', minHeight: '18px',
         }}>
           {parsing
-            ? 'Interpreting with AI\u2026'
-            : 'Describe a schedule and AI will turn it into calendar rules.'}
+            ? 'Interpreting...\u2026'
+            : 'Describe, remove, or update a schedule and we will handle it.'}
         </div>
       )}
 

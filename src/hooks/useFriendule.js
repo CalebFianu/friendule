@@ -40,6 +40,7 @@ export function useFriendule() {
   const [loading, setLoading] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [clarification, setClarification] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
   const toastTimer = useRef(null);
 
   const flash = useCallback((msg) => {
@@ -115,13 +116,41 @@ export function useFriendule() {
       .sort((a, b) => (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || (a.startMin || 0) - (b.startMin || 0));
   }
 
+  function toMins(hhmm) {
+    if (!hhmm) return null;
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  // Returns true if the time ranges of two rules overlap on days they share.
+  // All-day rules cover the full day and therefore always overlap time-wise.
+  function timesOverlap(a, b) {
+    if (a.allDay || b.allDay) return true;
+    const aStart = toMins(a.timeStart);
+    const aEnd   = toMins(a.timeEnd);
+    const bStart = toMins(b.timeStart);
+    const bEnd   = toMins(b.timeEnd);
+    if (aStart === null || aEnd === null || bStart === null || bEnd === null) return true;
+    return aStart < bEnd && bStart < aEnd;
+  }
+
+  // Returns true if two rules share at least one calendar day AND their time ranges overlap.
   function rulesOverlap(a, b) {
-    if (a.recurrence === 'daily' || b.recurrence === 'daily') return true;
-    if (a.recurrence === 'once' && b.recurrence === 'once') return a.date === b.date;
-    if (a.recurrence === 'once' && b.recurrence === 'weekly') return b.weekdays?.includes(parseYmd(a.date).getDay());
-    if (a.recurrence === 'weekly' && b.recurrence === 'once') return a.weekdays?.includes(parseYmd(b.date).getDay());
-    if (a.recurrence === 'weekly' && b.recurrence === 'weekly') return a.weekdays?.some(wd => b.weekdays?.includes(wd));
-    return false;
+    let sharesDay;
+    if (a.recurrence === 'daily' || b.recurrence === 'daily') {
+      sharesDay = true;
+    } else if (a.recurrence === 'once' && b.recurrence === 'once') {
+      sharesDay = a.date === b.date;
+    } else if (a.recurrence === 'once' && b.recurrence === 'weekly') {
+      sharesDay = b.weekdays?.includes(parseYmd(a.date).getDay());
+    } else if (a.recurrence === 'weekly' && b.recurrence === 'once') {
+      sharesDay = a.weekdays?.includes(parseYmd(b.date).getDay());
+    } else if (a.recurrence === 'weekly' && b.recurrence === 'weekly') {
+      sharesDay = a.weekdays?.some(wd => b.weekdays?.includes(wd));
+    } else {
+      sharesDay = false;
+    }
+    return sharesDay && timesOverlap(a, b);
   }
 
   const friendConflicts = useMemo(() => {
@@ -166,6 +195,36 @@ export function useFriendule() {
   };
   const clearEveryoneFilter = () => setEveryoneFilter([]);
 
+  // Returns true if a rule matches the filter criteria from the LLM
+  function matchesFilter(rule, filter) {
+    if (!filter) return false;
+    if (filter.all) return true;
+
+    if (filter.status && filter.status !== 'any' && rule.status !== filter.status) return false;
+    if (filter.recurrence && filter.recurrence !== 'any' && rule.recurrence !== filter.recurrence) return false;
+
+    if (filter.date) {
+      if (rule.recurrence !== 'once' || rule.date !== filter.date) return false;
+    }
+
+    if (filter.weekdays && filter.weekdays.length > 0) {
+      if (rule.recurrence === 'weekly') {
+        if (!rule.weekdays?.some(wd => filter.weekdays.includes(wd))) return false;
+      } else if (rule.recurrence === 'once') {
+        const ruleWd = parseYmd(rule.date).getDay();
+        if (!filter.weekdays.includes(ruleWd)) return false;
+      }
+      // daily rules match any weekday filter
+    }
+
+    if (filter.title_keywords && filter.title_keywords.length > 0) {
+      const titleLower = (rule.title || '').toLowerCase();
+      if (!filter.title_keywords.some(kw => titleLower.includes(kw.toLowerCase()))) return false;
+    }
+
+    return true;
+  }
+
   // Prompt / LLM parse → persist rules to backend
   const commitPrompt = async () => {
     const text = prompt.trim();
@@ -176,9 +235,23 @@ export function useFriendule() {
     setClarification(null);
 
     try {
+      const friendRules = rules.filter(r => r.friendId === friend.id);
+
       const data = await apiFetch('/parse', {
         method: 'POST',
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({
+          text,
+          existingRules: friendRules.map(r => ({
+            title: r.title,
+            status: r.status,
+            recurrence: r.recurrence,
+            weekdays: r.weekdays,
+            date: r.date,
+            timeStart: r.timeStart,
+            timeEnd: r.timeEnd,
+            allDay: r.allDay,
+          })),
+        }),
       });
 
       if (data.clarification_needed) {
@@ -186,12 +259,83 @@ export function useFriendule() {
         return;
       }
 
+      const intent = data.intent || 'create';
+
+      if (intent === 'delete') {
+        const toDelete = friendRules.filter(r => matchesFilter(r, data.delete_filter));
+        if (toDelete.length === 0) {
+          flash('No matching rules found to delete');
+          return;
+        }
+        setConfirmDialog({
+          intent: 'delete',
+          affectedRules: toDelete,
+          updateFields: null,
+          onConfirm: async () => {
+            setConfirmDialog(null);
+            try {
+              for (const rule of toDelete) {
+                await apiFetch('/rules/' + rule.id, { method: 'DELETE' });
+                setRules(prev => prev.filter(r => r.id !== rule.id));
+              }
+              setPrompt('');
+              flash('Removed ' + toDelete.length + ' rule' + (toDelete.length > 1 ? 's' : ''));
+            } catch (err) {
+              flash('Delete failed: ' + err.message);
+            }
+          },
+          onCancel: () => setConfirmDialog(null),
+        });
+        return;
+      }
+
+      if (intent === 'update') {
+        const { update_filter, update_fields } = data;
+        const toUpdate = friendRules.filter(r => matchesFilter(r, update_filter));
+        if (toUpdate.length === 0) {
+          flash('No matching rules found to update');
+          return;
+        }
+        setConfirmDialog({
+          intent: 'update',
+          affectedRules: toUpdate,
+          updateFields: update_fields,
+          onConfirm: async () => {
+            setConfirmDialog(null);
+            try {
+              for (const rule of toUpdate) {
+                const body = {
+                  friendId: rule.friendId,
+                  title: update_fields.title ?? rule.title,
+                  status: update_fields.status ?? rule.status,
+                  allDay: update_fields.allDay ?? rule.allDay,
+                  timeStart: (update_fields.allDay ?? rule.allDay) ? null : (update_fields.timeStart ?? rule.timeStart),
+                  timeEnd: (update_fields.allDay ?? rule.allDay) ? null : (update_fields.timeEnd ?? rule.timeEnd),
+                  recurrence: update_fields.recurrence ?? rule.recurrence,
+                  weekdays: update_fields.weekdays ?? rule.weekdays,
+                  date: update_fields.date ?? rule.date,
+                  rawText: rule.rawText || '',
+                };
+                const updated = await apiFetch('/rules/' + rule.id, { method: 'PUT', body: JSON.stringify(body) });
+                setRules(prev => prev.map(r => r.id === rule.id ? updated : r));
+              }
+              setPrompt('');
+              flash('Updated ' + toUpdate.length + ' rule' + (toUpdate.length > 1 ? 's' : ''));
+            } catch (err) {
+              flash('Update failed: ' + err.message);
+            }
+          },
+          onCancel: () => setConfirmDialog(null),
+        });
+        return;
+      }
+
+      // create (default)
       if (!data.rules || data.rules.length === 0) {
         flash("Couldn't extract any schedule rules from that");
         return;
       }
 
-      // Persist each parsed rule, skipping any that conflict with existing or already-accepted rules
       const saved = [];
       let skipped = 0;
       for (const r of data.rules) {
@@ -202,7 +346,6 @@ export function useFriendule() {
         }
         const created = await apiFetch('/rules', { method: 'POST', body: JSON.stringify(body) });
         saved.push(created);
-        // Add to rules so subsequent conflict checks in this batch see it
         setRules(prev => [...prev, created]);
       }
 
@@ -259,27 +402,7 @@ export function useFriendule() {
     if (body.status === 'together') return false;
     const opposite = body.status === 'busy' ? 'free' : 'busy';
     const candidates = rules.filter(r => r.friendId === body.friendId && r.id !== excludeId && r.status === opposite);
-    if (!candidates.length) return false;
-
-    if (body.recurrence === 'daily') return true;
-
-    if (body.recurrence === 'once') {
-      const wd = parseYmd(body.date).getDay();
-      return candidates.some(r =>
-        r.recurrence === 'daily' ||
-        (r.recurrence === 'once' && r.date === body.date) ||
-        (r.recurrence === 'weekly' && r.weekdays?.includes(wd))
-      );
-    }
-
-    if (body.recurrence === 'weekly') {
-      return candidates.some(r =>
-        r.recurrence === 'daily' ||
-        (r.recurrence === 'weekly' && r.weekdays?.some(wd => body.weekdays.includes(wd)))
-      );
-    }
-
-    return false;
+    return candidates.some(r => rulesOverlap(body, r));
   };
 
   const saveEvent = async () => {
@@ -449,7 +572,7 @@ export function useFriendule() {
     submitAuth, logout,
     tab, view, friendIdx, cursor, prompt, editor, dayDetail, friendDay, toast, addFriendModal, everyoneFilter,
     friends, rules, cur, friend, loading,
-    parsing, clarification, setClarification,
+    parsing, clarification, setClarification, confirmDialog,
     goFriends, goEveryone, setMonthView, setWeekView,
     prevFriend, nextFriend, pickFriend, goToday, prevPeriod, nextPeriod,
     setPrompt, commitPrompt,

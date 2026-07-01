@@ -13,6 +13,7 @@ import FriendDayPanel from './components/FriendDayPanel';
 import ConflictBanner from './components/ConflictBanner';
 import AddFriendModal from './components/AddFriendModal';
 import Toast from './components/Toast';
+import ConfirmDialog from './components/ConfirmDialog';
 
 export default function App() {
   const state = useFriendule();
@@ -138,6 +139,7 @@ export default function App() {
       <FriendDayPanel friendDay={state.friendDay} friend={state.friend} openEdit={state.openEdit} openNew={state.openNew} closeFriendDay={state.closeFriendDay} />
       <DayDetail dayDetail={state.dayDetail} closeDay={state.closeDay} />
       <AddFriendModal addFriendModal={state.addFriendModal} patchAf={state.patchAf} closeAddFriend={state.closeAddFriend} saveNewFriend={state.saveNewFriend} />
+      <ConfirmDialog confirmDialog={state.confirmDialog} />
       <Toast message={state.toast} />
     </div>
   );
