@@ -3,7 +3,11 @@ const Groq = require('groq-sdk');
 const { toFile } = require('groq-sdk');
 
 const router = Router();
-const client = new Groq(); // reads GROQ_API_KEY from env
+let client = null;
+function getClient() {
+  if (!client) client = new Groq();
+  return client;
+}
 
 router.post('/', async (req, res) => {
   const { audio, mimeType } = req.body || {};
@@ -24,7 +28,7 @@ router.post('/', async (req, res) => {
       type: mimeType || 'audio/webm',
     });
 
-    const result = await client.audio.transcriptions.create({
+    const result = await getClient().audio.transcriptions.create({
       file,
       model: 'whisper-large-v3',
     });
