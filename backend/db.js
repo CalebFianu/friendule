@@ -20,6 +20,7 @@ async function init() {
       color       TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       timezone    TEXT NOT NULL DEFAULT 'Africa/Accra',
+      is_self     BOOLEAN NOT NULL DEFAULT false,
       created_at  BIGINT NOT NULL
     );
 
@@ -67,6 +68,11 @@ async function init() {
       DROP CONSTRAINT IF EXISTS rules_status_check;
     ALTER TABLE rules
       ADD CONSTRAINT rules_status_check CHECK(status IN ('busy', 'free', 'together'));
+  `);
+
+  // Migrate: add is_self column for personal calendar
+  await pool.query(`
+    ALTER TABLE friends ADD COLUMN IF NOT EXISTS is_self BOOLEAN NOT NULL DEFAULT false;
   `);
 }
 

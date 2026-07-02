@@ -49,7 +49,7 @@ export default function App() {
   // Period label
   const monthLabel = MONTHS[cur.getMonth()] + ' ' + cur.getFullYear();
   let periodLabel = monthLabel;
-  if (isWeek && tab === 'friends') {
+  if (isWeek && (tab === 'friends' || tab === 'personal')) {
     const ws = addDays(cur, -cur.getDay());
     const we = addDays(ws, 6);
     periodLabel = MONTHS[ws.getMonth()] + ' ' + ws.getDate() + ' – ' + (ws.getMonth() !== we.getMonth() ? MONTHS[we.getMonth()] + ' ' : '') + we.getDate();
@@ -58,7 +58,63 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', width: '100%', backgroundColor: '#FBF6F0', backgroundImage: 'radial-gradient(900px 520px at 6% -12%, oklch(0.87 0.075 70 / .55), transparent 60%),radial-gradient(820px 520px at 100% -4%, oklch(0.85 0.085 28 / .42), transparent 56%),radial-gradient(760px 620px at 92% 112%, oklch(0.86 0.06 255 / .38), transparent 56%),radial-gradient(circle, oklch(0.5 0.03 60 / .055) 1.1px, transparent 1.1px)', backgroundSize: 'auto,auto,auto,24px 24px', backgroundAttachment: 'fixed' }}>
       <div style={{ maxWidth: '1140px', margin: '0 auto', padding: 'clamp(16px,3vw,34px)' }}>
-        <Header tab={tab} goFriends={state.goFriends} goEveryone={state.goEveryone} auth={state.auth} logout={state.logout} />
+        <Header tab={tab} goFriends={state.goFriends} goEveryone={state.goEveryone} goPersonal={state.goPersonal} auth={state.auth} logout={state.logout} />
+
+        {tab === 'personal' && (
+          <div style={{ animation: 'flin .25s ease both' }}>
+            {!state.personalFriend ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh' }}>
+                <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '17px', color: '#9A8E83' }}>Setting up your calendar…</div>
+              </div>
+            ) : (
+              <>
+                {/* Personal header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px', padding: '16px 18px', background: '#fff', borderRadius: '20px', border: '1px solid #EFE7DD' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '999px', background: state.personalFriend.colorset.solid, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '20px', fontFamily: "'Quicksand',sans-serif", flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,.15)' }}>
+                    {state.auth.email[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 800, fontSize: '20px', color: '#3A322C' }}>My Calendar</div>
+                    <div style={{ fontSize: '13px', color: '#9A8E83', fontWeight: 600, marginTop: '2px' }}>Your personal schedule</div>
+                  </div>
+                </div>
+
+                <PromptBox
+                  friend={state.personalFriend}
+                  prompt={state.prompt}
+                  setPrompt={state.setPrompt}
+                  commitPrompt={state.commitPrompt}
+                  parsing={state.parsing}
+                  clarification={state.clarification}
+                  setClarification={state.setClarification}
+                  transcribe={state.transcribe}
+                />
+
+                {/* Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '18px 2px 12px' }}>
+                  <div style={{ display: 'flex', background: '#fff', border: '1px solid #EFE7DD', borderRadius: '999px', padding: '4px' }}>
+                    <button style={isMonth ? segOn : segOff} onClick={state.setMonthView}>Month</button>
+                    <button style={isWeek ? segOn : segOff} onClick={state.setWeekView}>Week</button>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button style={{ width: '36px', height: '36px', borderRadius: '999px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }} onClick={state.prevPeriod}>&lsaquo;</button>
+                    <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '17px', minWidth: '150px', textAlign: 'center' }}>{periodLabel}</div>
+                    <button style={{ width: '36px', height: '36px', borderRadius: '999px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }} onClick={state.nextPeriod}>&rsaquo;</button>
+                    <button style={{ marginLeft: '4px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', borderRadius: '999px', padding: '8px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }} onClick={state.goToday}>Today</button>
+                  </div>
+                  <button style={{ border: 'none', background: '#3A322C', color: '#fff', borderRadius: '999px', padding: '9px 16px', fontWeight: 800, fontSize: '13.5px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={state.addBlank}>+ Add event</button>
+                </div>
+
+                {isMonth && (
+                  <MonthGrid cur={cur} friend={state.personalFriend} instances={(_, date) => state.personalInstances(date)} openFriendDay={state.openFriendDay} openEdit={state.openEdit} />
+                )}
+                {isWeek && (
+                  <WeekView cur={cur} friend={state.personalFriend} instances={(_, date) => state.personalInstances(date)} openFriendDay={state.openFriendDay} openEdit={state.openEdit} />
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {tab === 'friends' && (
           <div style={{ animation: 'flin .25s ease both' }}>
@@ -72,7 +128,7 @@ export default function App() {
               <>
                 <FriendSwitcher
                   friend={state.friend}
-                  friends={state.friends}
+                  friends={state.regularFriends}
                   friendIdx={state.friendIdx}
                   prevFriend={state.prevFriend}
                   nextFriend={state.nextFriend}
@@ -123,7 +179,7 @@ export default function App() {
         {tab === 'everyone' && (
           <EveryoneView
             cur={cur}
-            friends={state.friends}
+            friends={state.regularFriends}
             everyoneFilter={state.everyoneFilter}
             busyOn={state.busyOn}
             toggleEveryoneFilter={state.toggleEveryoneFilter}
@@ -137,7 +193,7 @@ export default function App() {
       </div>
 
       <EventEditor editor={state.editor} patchEd={state.patchEd} toggleWd={state.toggleWd} closeEditor={state.closeEditor} saveEvent={state.saveEvent} deleteEvent={state.deleteEvent} />
-      <FriendDayPanel friendDay={state.friendDay} friend={state.friend} openEdit={state.openEdit} openNew={state.openNew} closeFriendDay={state.closeFriendDay} />
+      <FriendDayPanel friendDay={state.friendDay} friend={state.effectiveFriend} openEdit={state.openEdit} openNew={state.openNew} closeFriendDay={state.closeFriendDay} />
       <DayDetail dayDetail={state.dayDetail} closeDay={state.closeDay} />
       <AddFriendModal addFriendModal={state.addFriendModal} patchAf={state.patchAf} closeAddFriend={state.closeAddFriend} saveNewFriend={state.saveNewFriend} />
       <ConfirmDialog confirmDialog={state.confirmDialog} />

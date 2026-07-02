@@ -120,11 +120,14 @@ export function useFriendule() {
   }, [auth?.token, apiFetch, flash]);
 
   const cur = parseYmd(cursor);
-  const friend = friends[friendIdx] || null;
+  const personalFriend = friends.find(f => f.isSelf) || null;
+  const regularFriends = friends.filter(f => !f.isSelf);
+  const friend = regularFriends[friendIdx] || null;
+  const effectiveFriend = tab === 'personal' ? personalFriend : friend;
 
   // Compute visible date range for expansion
   const visibleRange = useMemo(() => {
-    if (view === 'week' && tab === 'friends') {
+    if (view === 'week' && (tab === 'friends' || tab === 'personal')) {
       const ws = addDays(cur, -cur.getDay());
       return { start: ymd(ws), end: ymd(addDays(ws, 6)) };
     }
@@ -138,7 +141,9 @@ export function useFriendule() {
     const map = {};
     for (const f of friends) {
       const friendRules = rules.filter(r => r.friendId === f.id);
-      map[f.id] = expandRules(friendRules, f.timezone || 'Africa/Accra', VIEWER_ZONE, visibleRange.start, visibleRange.end);
+      // Personal friend events use viewer's own timezone (no conversion needed)
+      const friendZone = f.isSelf ? VIEWER_ZONE : (f.timezone || 'Africa/Accra');
+      map[f.id] = expandRules(friendRules, friendZone, VIEWER_ZONE, visibleRange.start, visibleRange.end);
     }
     return map;
   }, [friends, rules, visibleRange]);
@@ -148,6 +153,24 @@ export function useFriendule() {
     return expanded
       .filter(e => e.date === y)
       .sort((a, b) => (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || (a.startMin || 0) - (b.startMin || 0));
+  }
+
+  // Personal calendar: own events + "together" events from friends (with fromFriend indicator)
+  function personalInstances(y) {
+    if (!personalFriend) return [];
+    const ownEvs = instances(personalFriend.id, y);
+    const togetherEvs = [];
+    for (const f of regularFriends) {
+      const expanded = expandedByFriend[f.id] || [];
+      for (const ev of expanded) {
+        if (ev.date === y && ev.status === 'together') {
+          togetherEvs.push({ ...ev, fromFriend: f });
+        }
+      }
+    }
+    return [...ownEvs, ...togetherEvs].sort(
+      (a, b) => (a.allDay ? -1 : 0) - (b.allDay ? -1 : 0) || (a.startMin || 0) - (b.startMin || 0)
+    );
   }
 
   const friendConflicts = useMemo(() => {
@@ -170,19 +193,20 @@ export function useFriendule() {
   // Navigation
   const goFriends = () => setTab('friends');
   const goEveryone = () => setTab('everyone');
+  const goPersonal = () => setTab('personal');
   const setMonthView = () => setView('month');
   const setWeekView = () => setView('week');
-  const prevFriend = () => setFriendIdx(i => (i - 1 + friends.length) % friends.length);
-  const nextFriend = () => setFriendIdx(i => (i + 1) % friends.length);
+  const prevFriend = () => setFriendIdx(i => (i - 1 + regularFriends.length) % Math.max(1, regularFriends.length));
+  const nextFriend = () => setFriendIdx(i => (i + 1) % Math.max(1, regularFriends.length));
   const pickFriend = (i) => { setFriendIdx(i); setTab('friends'); };
   const goToday = () => setCursor(ymd(new Date()));
 
   const prevPeriod = () => {
-    if (view === 'week' && tab === 'friends') setCursor(ymd(addDays(cur, -7)));
+    if (view === 'week' && (tab === 'friends' || tab === 'personal')) setCursor(ymd(addDays(cur, -7)));
     else setCursor(ymd(new Date(cur.getFullYear(), cur.getMonth() - 1, 1)));
   };
   const nextPeriod = () => {
-    if (view === 'week' && tab === 'friends') setCursor(ymd(addDays(cur, 7)));
+    if (view === 'week' && (tab === 'friends' || tab === 'personal')) setCursor(ymd(addDays(cur, 7)));
     else setCursor(ymd(new Date(cur.getFullYear(), cur.getMonth() + 1, 1)));
   };
 
@@ -205,11 +229,29 @@ export function useFriendule() {
     if (filter.all) return true;
 
     if (filter.status && filter.status !== 'any' && rule.status !== filter.status) return false;
-    if (filter.recurrence && filter.recurrence !== 'any' && rule.recurrence !== filter.recurrence) return false;
 
+    // When a specific date is given, check whether the rule fires on that date
+    // regardless of recurrence type — skip the recurrence filter in this branch.
     if (filter.date) {
-      if (rule.recurrence !== 'once' || rule.date !== filter.date) return false;
+      if (rule.recurrence === 'once') {
+        if (rule.date !== filter.date) return false;
+      } else if (rule.recurrence === 'weekly') {
+        const wd = parseYmd(filter.date).getDay();
+        if (!rule.weekdays?.includes(wd)) return false;
+      } else if (rule.recurrence === 'daily') {
+        // daily rules fire every day — always a match
+      } else {
+        return false;
+      }
+      // Still honour title_keywords if present
+      if (filter.title_keywords && filter.title_keywords.length > 0) {
+        const titleLower = (rule.title || '').toLowerCase();
+        if (!filter.title_keywords.some(kw => titleLower.includes(kw.toLowerCase()))) return false;
+      }
+      return true;
     }
+
+    if (filter.recurrence && filter.recurrence !== 'any' && rule.recurrence !== filter.recurrence) return false;
 
     if (filter.weekdays && filter.weekdays.length > 0) {
       if (rule.recurrence === 'weekly') {
@@ -233,13 +275,13 @@ export function useFriendule() {
   const commitPrompt = async () => {
     const text = prompt.trim();
     if (!text) { flash('Type a schedule description first'); return; }
-    if (!friend) { flash('Add a friend first'); return; }
+    if (!effectiveFriend) { flash(tab === 'personal' ? 'Your calendar is loading…' : 'Add a friend first'); return; }
 
     setParsing(true);
     setClarification(null);
 
     try {
-      const friendRules = rules.filter(r => r.friendId === friend.id);
+      const friendRules = rules.filter(r => r.friendId === effectiveFriend.id);
 
       const data = await apiFetch('/parse', {
         method: 'POST',
@@ -309,7 +351,7 @@ export function useFriendule() {
             try {
               for (const rule of toUpdate) {
                 const body = {
-                  friendId: rule.friendId,
+                  friendId: effectiveFriend.id,
                   title: update_fields.title ?? rule.title,
                   status: update_fields.status ?? rule.status,
                   allDay: update_fields.allDay ?? rule.allDay,
@@ -343,7 +385,7 @@ export function useFriendule() {
       const saved = [];
       let skipped = 0;
       for (const r of data.rules) {
-        const body = { ...r, friendId: friend.id, rawText: text };
+        const body = { ...r, friendId: effectiveFriend.id, rawText: text };
         if (hasStatusConflict(body, null)) {
           skipped++;
           continue;
@@ -355,10 +397,11 @@ export function useFriendule() {
 
       setPrompt('');
       setClarification(null);
+      const forLabel = tab === 'personal' ? 'your calendar' : effectiveFriend.firstName;
       if (saved.length === 0) {
         flash('All parsed rules conflicted with existing schedule — none added');
       } else {
-        flash('Added ' + saved.length + ' rule' + (saved.length > 1 ? 's' : '') + ' for ' + friend.firstName + (skipped ? ' (' + skipped + ' conflict' + (skipped > 1 ? 's' : '') + ' skipped)' : ''));
+        flash('Added ' + saved.length + ' rule' + (saved.length > 1 ? 's' : '') + ' for ' + forLabel + (skipped ? ' (' + skipped + ' conflict' + (skipped > 1 ? 's' : '') + ' skipped)' : ''));
       }
     } catch (err) {
       flash('Error: ' + err.message);
@@ -369,10 +412,11 @@ export function useFriendule() {
 
   // Editor
   const openNew = (y, startMin) => {
-    if (!friend) return;
+    const eff = tab === 'personal' ? personalFriend : friend;
+    if (!eff) return;
     const wd = parseYmd(y).getDay();
     setEditor({
-      mode: 'new', friendId: friend.id, title: '', status: 'busy', allDay: false,
+      mode: 'new', friendId: eff.id, title: '', status: 'busy', allDay: false,
       start: hhmm(startMin != null ? startMin : 720),
       end: hhmm((startMin != null ? startMin : 720) + 60),
       repeat: 'once', date: y, weekdays: [wd],
@@ -494,7 +538,7 @@ export function useFriendule() {
       });
       const hydrated = hydrateFriend(created);
       setFriends(f => [...f, hydrated]);
-      setFriendIdx(friends.length);
+      setFriendIdx(regularFriends.length);
       setAddFriendModal(null);
       setTab('friends');
       flash(hydrated.firstName + ' added!');
@@ -558,10 +602,11 @@ export function useFriendule() {
   };
   const closeDay = () => setDayDetail(null);
 
-  // Friend-scoped day panel (per-friend calendar click)
+  // Friend-scoped day panel (per-friend or personal calendar click)
   const openFriendDay = (y, startMin) => {
-    if (!friend) return;
-    const evs = instances(friend.id, y);
+    const eff = tab === 'personal' ? personalFriend : friend;
+    if (!eff) return;
+    const evs = tab === 'personal' ? personalInstances(y) : instances(eff.id, y);
     if (evs.length > 0) {
       setFriendDay({ ymd: y, startMin: startMin ?? 720, evs });
     } else {
@@ -575,9 +620,9 @@ export function useFriendule() {
     setAuthMode, setAuthFields: (p) => { setAuthFields(f => ({ ...f, ...p })); setAuthError(null); },
     submitAuth, logout,
     tab, view, friendIdx, cursor, prompt, editor, dayDetail, friendDay, toast, addFriendModal, everyoneFilter,
-    friends, rules, cur, friend, loading,
+    friends, regularFriends, personalFriend, effectiveFriend, rules, cur, friend, loading,
     parsing, clarification, setClarification, confirmDialog, transcribe,
-    goFriends, goEveryone, setMonthView, setWeekView,
+    goFriends, goEveryone, goPersonal, setMonthView, setWeekView,
     prevFriend, nextFriend, pickFriend, goToday, prevPeriod, nextPeriod,
     setPrompt, commitPrompt,
     toggleEveryoneFilter, clearEveryoneFilter,
@@ -585,7 +630,7 @@ export function useFriendule() {
     openAddFriend, closeAddFriend, patchAf, saveNewFriend,
     openDay, closeDay,
     openFriendDay, closeFriendDay,
-    instances, busyOn, flash,
+    instances, personalInstances, busyOn, flash,
     friendConflicts,
     viewerZone: VIEWER_ZONE,
   };

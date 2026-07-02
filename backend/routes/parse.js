@@ -86,13 +86,16 @@ Return ONLY valid JSON (no markdown, no explanation) matching one of these schem
 - "we","us","together","with [name]","our","let's","hang","catch up" → status "together".
 - If unclear, default to "busy".
 - "weekdays" = [1,2,3,4,5]. "weekends" = [0,6].
-- Day name without "every" or plural → next single occurrence (use today's date below).
+- CRITICAL — "today" or "this [day]" → ALWAYS recurrence: "once", date: today's date. NEVER use "daily".
+- CRITICAL — "tomorrow" → recurrence: "once", date: tomorrow's date.
+- Day name without "every" or plural (e.g. "Tuesday") → recurrence: "once", date: next occurrence of that weekday.
 - "every Tuesday" or "Tuesdays" (plural) → weekly.
 - Keep titles concise — extract the activity, not the full sentence.
 
 ─────────── DELETE/UPDATE RULES ───────────
 - Use clarification_needed when it's unclear which rules to target (e.g. "remove something").
 - "clear everything" / "remove all" / "delete all" / "wipe schedule" → set all: true.
+- "clear today" / "clear my schedule for today" / "remove today's events" → date: today's date. Do NOT set recurrence — the app will match all rules (once/weekly/daily) that fire on that date.
 - "clear Monday" → weekdays: [1]. "remove weekends" → weekdays: [0,6].
 - "remove gym" / "delete work" → title_keywords: ["gym"] / ["work"].
 - "delete busy events" → status: "busy". "remove free blocks" → status: "free".

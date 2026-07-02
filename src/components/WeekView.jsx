@@ -62,13 +62,21 @@ export default function WeekView({ cur, friend, instances, openFriendDay, openEd
               <div key={day.y} style={{ padding: '5px', display: 'flex', flexDirection: 'column', gap: '3px', borderLeft: '1px solid #F1EAE0', minHeight: '30px' }}>
                 {day.allDay.map(e => {
                   const cs = friend.colorset;
+                  const base = { display: 'flex', alignItems: 'center', gap: '3px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, overflow: 'hidden', cursor: 'pointer', lineHeight: '1.55' };
                   const allDayStyle = e.status === 'busy'
-                    ? { background: cs.solid, color: '#fff', borderRadius: '7px', padding: '2px 7px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: '1.55' }
+                    ? { ...base, background: cs.solid, color: '#fff', padding: '2px 7px' }
                     : e.status === 'together'
-                    ? { background: '#FDE8F5', color: '#A0357A', border: '1px solid #F3BBE0', borderRadius: '7px', padding: '1px 6px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: '1.55' }
-                    : { background: cs.tint, color: cs.deep, border: '1px solid ' + cs.tintBorder, borderRadius: '7px', padding: '1px 6px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: '1.55' };
+                    ? { ...base, background: '#FDE8F5', color: '#A0357A', border: '1px solid #F3BBE0', padding: '1px 6px' }
+                    : { ...base, background: cs.tint, color: cs.deep, border: '1px solid ' + cs.tintBorder, padding: '1px 6px' };
                   return (
-                    <div key={e.id} onClick={ev => { ev.stopPropagation(); openEdit(e); }} style={allDayStyle}>{e.title}</div>
+                    <div key={e.id} onClick={ev => { ev.stopPropagation(); openEdit(e); }} style={allDayStyle}>
+                      {e.fromFriend && (
+                        <span style={{ flexShrink: 0, width: '12px', height: '12px', borderRadius: '999px', background: e.fromFriend.colorset.solid, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '7px', color: '#fff', fontWeight: 800 }}>
+                          {e.fromFriend.initials[0]}
+                        </span>
+                      )}
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</span>
+                    </div>
                   );
                 })}
               </div>
@@ -102,8 +110,13 @@ export default function WeekView({ cur, friend, instances, openFriendDay, openEd
                       left: '3px', right: '3px', borderRadius: '9px', padding: '3px 7px', overflow: 'hidden', cursor: 'pointer',
                       background: timedBg, color: timedColor, border: timedBorder
                     }}>
-                      <div style={{ fontWeight: 800, fontSize: '11.5px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
+                      <div style={{ fontWeight: 800, fontSize: '11.5px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: e.fromFriend ? '18px' : '0' }}>{e.title}</div>
                       <div style={{ fontSize: '10px', fontWeight: 700, opacity: .85, marginTop: '1px' }}>{fmtTime(e.startMin)}–{fmtTime(e.endMin)}</div>
+                      {e.fromFriend && (
+                        <div style={{ position: 'absolute', top: '4px', right: '5px', width: '14px', height: '14px', borderRadius: '999px', background: e.fromFriend.colorset.solid, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: '#fff', fontWeight: 800 }}>
+                          {e.fromFriend.initials[0]}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

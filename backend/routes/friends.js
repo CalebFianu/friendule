@@ -11,7 +11,7 @@ const PALETTE = [
 ];
 
 async function pickColor(ownerId) {
-  const { rows } = await pool.query('SELECT color FROM friends WHERE owner_id = $1', [ownerId]);
+  const { rows } = await pool.query('SELECT color FROM friends WHERE owner_id = $1 AND is_self = false', [ownerId]);
   const used = rows.map(r => r.color);
   return PALETTE.find(c => !used.includes(c)) || PALETTE[used.length % PALETTE.length];
 }
@@ -23,13 +23,26 @@ function formatFriend(row) {
     color: row.color,
     description: row.description,
     timezone: row.timezone || 'Africa/Accra',
+    isSelf: row.is_self || false,
     createdAt: row.created_at
   };
 }
 
-// GET /friends
+// GET /friends — auto-creates personal calendar friend if missing
 router.get('/', async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM friends WHERE owner_id = $1 ORDER BY created_at ASC', [req.userId]);
+  let { rows } = await pool.query('SELECT * FROM friends WHERE owner_id = $1 ORDER BY created_at ASC', [req.userId]);
+
+  if (!rows.some(r => r.is_self)) {
+    const id = uuid();
+    const now = Date.now();
+    await pool.query(
+      'INSERT INTO friends (id, owner_id, name, color, description, timezone, is_self, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [id, req.userId, 'Me', 'oklch(0.65 0.15 260)', '', 'UTC', true, now]
+    );
+    const { rows: updated } = await pool.query('SELECT * FROM friends WHERE owner_id = $1 ORDER BY created_at ASC', [req.userId]);
+    rows = updated;
+  }
+
   res.json({ friends: rows.map(formatFriend) });
 });
 

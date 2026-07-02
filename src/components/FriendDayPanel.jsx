@@ -39,7 +39,7 @@ export default function FriendDayPanel({ friendDay, friend, openEdit, openNew, c
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div>
             <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 800, fontSize: '18px', color: '#3A322C' }}>{prettyDate(friendDay.ymd)}</div>
-            <div style={{ fontSize: '13px', color: '#9A8E83', fontWeight: 600, marginTop: '2px' }}>{friend.firstName}&apos;s schedule</div>
+            <div style={{ fontSize: '13px', color: '#9A8E83', fontWeight: 600, marginTop: '2px' }}>{friend.isSelf ? 'Your schedule' : friend.firstName + '\u2019s schedule'}</div>
           </div>
           <button
             style={{ width: '34px', height: '34px', borderRadius: '999px', border: 'none', background: '#F3ECE2', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }}
@@ -57,11 +57,11 @@ export default function FriendDayPanel({ friendDay, friend, openEdit, openNew, c
               onMouseEnter={ev => ev.currentTarget.style.background = '#FBF6F0'}
               onMouseLeave={ev => ev.currentTarget.style.background = ''}
             >
-              <div style={{ flex: '0 0 auto', width: '10px', height: '10px', borderRadius: '999px', background: e.status === 'busy' ? cs.solid : e.status === 'together' ? '#A0357A' : '#4CAF72' }} />
+              <div style={{ flex: '0 0 auto', width: '10px', height: '10px', borderRadius: '999px', background: e.fromFriend ? e.fromFriend.colorset.solid : (e.status === 'busy' ? cs.solid : e.status === 'together' ? '#A0357A' : '#4CAF72') }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: '14px', color: '#3A322C', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
                 <div style={{ fontSize: '12px', fontWeight: 600, color: '#9A8E83', marginTop: '1px' }}>
-                  {e.allDay ? 'All day' : fmtTime(e.startMin) + ' – ' + fmtTime(e.endMin)}
+                  {e.fromFriend ? 'with ' + e.fromFriend.firstName + ' · ' : ''}{e.allDay ? 'All day' : fmtTime(e.startMin) + ' – ' + fmtTime(e.endMin)}
                 </div>
               </div>
               <span style={statusStyle(e.status)}>{statusLabel(e.status)}</span>

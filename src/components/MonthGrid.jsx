@@ -20,13 +20,14 @@ function numBadgeStyle(c) {
 
 function chipStyle(e, f) {
   const cs = f.colorset;
+  const base = { display: 'flex', alignItems: 'center', gap: '3px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, overflow: 'hidden', cursor: 'pointer', lineHeight: '1.55' };
   if (e.status === 'busy') {
-    return { background: cs.solid, color: '#fff', borderRadius: '7px', padding: '2px 7px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: '1.55' };
+    return { ...base, background: cs.solid, color: '#fff', padding: '2px 7px' };
   }
   if (e.status === 'together') {
-    return { background: '#FDE8F5', color: '#A0357A', border: '1px solid #F3BBE0', borderRadius: '7px', padding: '1px 6px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: '1.55' };
+    return { ...base, background: '#FDE8F5', color: '#A0357A', border: '1px solid #F3BBE0', padding: '1px 6px' };
   }
-  return { background: '#E6F4ED', color: '#2A7A50', border: '1px solid #9ECDB0', borderRadius: '7px', padding: '1px 6px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: '1.55' };
+  return { ...base, background: '#E6F4ED', color: '#2A7A50', border: '1px solid #9ECDB0', padding: '1px 6px' };
 }
 
 export default function MonthGrid({ cur, friend, instances, openFriendDay, openEdit }) {
@@ -49,7 +50,14 @@ export default function MonthGrid({ cur, friend, instances, openFriendDay, openE
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '3px' }}>
                 {chips.map(e => (
                   <div key={e.id} style={chipStyle(e, friend)} onClick={ev => { ev.stopPropagation(); openEdit(e); }}>
-                    {e.allDay ? e.title : shortTime(e.startMin) + ' ' + e.title}
+                    {e.fromFriend && (
+                      <span style={{ flexShrink: 0, width: '12px', height: '12px', borderRadius: '999px', background: e.fromFriend.colorset.solid, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '7px', color: '#fff', fontWeight: 800 }}>
+                        {e.fromFriend.initials[0]}
+                      </span>
+                    )}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {e.allDay ? e.title : shortTime(e.startMin) + ' ' + e.title}
+                    </span>
                   </div>
                 ))}
                 {evs.length > 3 && <div style={{ fontSize: '11px', color: '#A99C8F', fontWeight: 700, paddingLeft: '3px' }}>+{evs.length - 3} more</div>}

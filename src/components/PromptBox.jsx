@@ -147,7 +147,7 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
         <span style={{ fontSize: '15px' }}>{busy ? '\u231B' : '\u2726'}</span>
         <span style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '.2px', whiteSpace: 'nowrap' }}>
-          Add, update or remove {friend.firstName}&apos;s schedule
+          {friend.isSelf ? 'Add, update or remove your schedule' : 'Add, update or remove ' + friend.firstName + '\u2019s schedule'}
         </span>
       </div>
 

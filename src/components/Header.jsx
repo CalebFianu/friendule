@@ -1,4 +1,4 @@
-export default function Header({ tab, goFriends, goEveryone, auth, logout }) {
+export default function Header({ tab, goFriends, goEveryone, goPersonal, auth, logout }) {
   const tabOn = { background: '#E07A53', color: '#fff', border: 'none', borderRadius: '999px', padding: '9px 18px', fontWeight: 800, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' };
   const tabOff = { background: 'transparent', color: '#8C7E70', border: 'none', borderRadius: '999px', padding: '9px 18px', fontWeight: 800, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap' };
 
@@ -17,6 +17,7 @@ export default function Header({ tab, goFriends, goEveryone, auth, logout }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', background: '#fff', border: '1px solid #EFE7DD', borderRadius: '999px', padding: '4px' }}>
+          <button style={tab === 'personal' ? tabOn : tabOff} onClick={goPersonal}>My Calendar</button>
           <button style={tab === 'friends' ? tabOn : tabOff} onClick={goFriends}>Per friend</button>
           <button style={tab === 'everyone' ? tabOn : tabOff} onClick={goEveryone}>Everyone</button>
         </div>
