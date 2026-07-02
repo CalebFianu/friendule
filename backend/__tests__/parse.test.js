@@ -54,9 +54,36 @@ const CREATE_PAYLOAD = {
   clarification_needed: null,
 };
 
+const CREATE_ONCE_TODAY_PAYLOAD = {
+  intent: 'create',
+  rules: [{
+    title: 'Work',
+    status: 'busy',
+    recurrence: 'once',
+    date: new Date().toISOString().slice(0, 10),
+    all_day: false,
+    time_start: '09:00',
+    time_end: '17:00',
+  }],
+  clarification_needed: null,
+};
+
 const DELETE_PAYLOAD = {
   intent: 'delete',
   delete_filter: { all: false, title_keywords: ['gym'], status: 'any', recurrence: 'any', weekdays: null, date: null },
+  clarification_needed: null,
+};
+
+const DELETE_BY_DATE_PAYLOAD = {
+  intent: 'delete',
+  delete_filter: {
+    all: false,
+    date: new Date().toISOString().slice(0, 10),
+    status: 'any',
+    recurrence: null,
+    weekdays: null,
+    title_keywords: null,
+  },
   clarification_needed: null,
 };
 
@@ -221,5 +248,179 @@ describe('POST /parse — field normalisation', () => {
     expect(res.status).toBe(200);
     expect(res.body.rules[0].allDay).toBe(true);
     expect(res.body.rules[0].timeStart).toBeNull();
+  });
+
+  test('passes through a once rule with today\'s date unchanged', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(CREATE_ONCE_TODAY_PAYLOAD));
+
+    const res = await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'working today' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('create');
+    const rule = res.body.rules[0];
+    expect(rule.recurrence).toBe('once');
+    expect(rule.date).toBe(new Date().toISOString().slice(0, 10));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// System prompt content — "today" and delete-by-date instructions
+// ---------------------------------------------------------------------------
+
+describe('POST /parse — system prompt instructions', () => {
+  test('system prompt contains CRITICAL instruction: "today" must produce once recurrence', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(CREATE_PAYLOAD));
+
+    await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'working today' });
+
+    const systemPrompt = groqCreate.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toMatch(/CRITICAL/);
+    expect(systemPrompt).toMatch(/today.*once/i);
+  });
+
+  test('system prompt contains CRITICAL instruction: "tomorrow" must produce once recurrence', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(CREATE_PAYLOAD));
+
+    await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'busy tomorrow' });
+
+    const systemPrompt = groqCreate.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toMatch(/tomorrow.*once/i);
+  });
+
+  test('system prompt tells LLM not to set recurrence in date-based delete filters', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(DELETE_PAYLOAD));
+
+    await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'clear today' });
+
+    const systemPrompt = groqCreate.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toMatch(/clear today/i);
+    expect(systemPrompt).toMatch(/do not set recurrence/i);
+  });
+
+  test('system prompt includes today\'s date', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(CREATE_PAYLOAD));
+
+    await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'test' });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const systemPrompt = groqCreate.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toContain(today);
+  });
+
+  test('system prompt includes existing rules context when provided', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(CREATE_PAYLOAD));
+
+    await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({
+        text: 'remove gym',
+        existingRules: [{
+          title: 'Gym',
+          status: 'busy',
+          recurrence: 'weekly',
+          weekdays: [1, 3],
+          timeStart: '07:00',
+          timeEnd: '08:00',
+          allDay: false,
+          date: null,
+        }],
+      });
+
+    const systemPrompt = groqCreate.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toMatch(/gym/i);
+    expect(systemPrompt).not.toMatch(/no existing rules/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Delete intent — date-based filter
+// ---------------------------------------------------------------------------
+
+describe('POST /parse — date-based delete filter', () => {
+  test('passes through delete filter with date and no recurrence', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(DELETE_BY_DATE_PAYLOAD));
+
+    const res = await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'clear my schedule for today' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.intent).toBe('delete');
+    expect(res.body.delete_filter.date).toBe(new Date().toISOString().slice(0, 10));
+    expect(res.body.delete_filter.recurrence).toBeNull();
+  });
+
+  test('passes through delete filter with title keywords unchanged', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(DELETE_PAYLOAD));
+
+    const res = await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'remove gym' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.delete_filter.title_keywords).toEqual(['gym']);
+    expect(res.body.delete_filter.date).toBeNull();
+  });
+
+  test('returns 502 when delete intent has no delete_filter', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse({ intent: 'delete' }));
+
+    const res = await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'remove everything' });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toMatch(/invalid delete structure/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Together status in create rules
+// ---------------------------------------------------------------------------
+
+describe('POST /parse — together status', () => {
+  test('passes through together-status rules from LLM', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse({
+      intent: 'create',
+      rules: [{
+        title: 'Dinner',
+        status: 'together',
+        recurrence: 'once',
+        date: '2026-08-05',
+        all_day: false,
+        time_start: '19:00',
+        time_end: '21:00',
+      }],
+      clarification_needed: null,
+    }));
+
+    const res = await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'dinner together on August 5th 7-9pm' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.rules[0].status).toBe('together');
+    expect(res.body.rules[0].title).toBe('Dinner');
+    expect(res.body.rules[0].timeStart).toBe('19:00');
   });
 });

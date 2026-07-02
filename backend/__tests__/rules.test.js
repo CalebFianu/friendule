@@ -46,6 +46,21 @@ const ONCE_RULE_ROW = {
   created_at: 1000000,
 };
 
+const TOGETHER_RULE_ROW = {
+  id: RULE_ID,
+  friend_id: FRIEND_ID,
+  title: 'Dinner',
+  status: 'together',
+  recurrence: 'once',
+  all_day: false,
+  time_start: '19:00',
+  time_end: '21:00',
+  date: '2026-08-05',
+  weekdays: null,
+  raw_text: 'dinner together on Aug 5th',
+  created_at: 1000000,
+};
+
 const WEEKLY_BODY = {
   friendId: FRIEND_ID,
   title: 'Work',
@@ -64,6 +79,17 @@ const ONCE_BODY = {
   recurrence: 'once',
   allDay: true,
   date: '2026-08-01',
+};
+
+const TOGETHER_BODY = {
+  friendId: FRIEND_ID,
+  title: 'Dinner',
+  status: 'together',
+  recurrence: 'once',
+  allDay: false,
+  timeStart: '19:00',
+  timeEnd: '21:00',
+  date: '2026-08-05',
 };
 
 // ---------------------------------------------------------------------------
@@ -89,11 +115,20 @@ describe('GET /rules', () => {
       .set(auth());
 
     expect(res.status).toBe(200);
-    // Verify the query included the friendId filter
     expect(pool.query).toHaveBeenCalledWith(
       expect.stringContaining('friend_id'),
       expect.arrayContaining([USER_ID, FRIEND_ID])
     );
+  });
+
+  test('returns together-status rules correctly', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [TOGETHER_RULE_ROW] });
+
+    const res = await request(app).get('/rules').set(auth());
+
+    expect(res.status).toBe(200);
+    expect(res.body.rules[0].status).toBe('together');
+    expect(res.body.rules[0].title).toBe('Dinner');
   });
 });
 
@@ -190,7 +225,7 @@ describe('POST /rules — validation', () => {
 // ---------------------------------------------------------------------------
 
 describe('POST /rules — success', () => {
-  test('creates a weekly rule and returns 201', async () => {
+  test('creates a weekly busy rule and returns 201', async () => {
     pool.query
       .mockResolvedValueOnce({ rows: [{ id: FRIEND_ID }] }) // validateRule: friend exists
       .mockResolvedValueOnce({ rows: [] })                  // INSERT
@@ -222,6 +257,67 @@ describe('POST /rules — success', () => {
     expect(res.body.recurrence).toBe('once');
     expect(res.body.allDay).toBe(true);
     expect(res.body.date).toBe('2026-08-01');
+  });
+
+  test('creates a together rule and returns 201', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: FRIEND_ID }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [TOGETHER_RULE_ROW] });
+
+    const res = await request(app)
+      .post('/rules')
+      .set(auth())
+      .send(TOGETHER_BODY);
+
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe('together');
+    expect(res.body.title).toBe('Dinner');
+    expect(res.body.timeStart).toBe('19:00');
+    expect(res.body.timeEnd).toBe('21:00');
+    expect(res.body.date).toBe('2026-08-05');
+  });
+
+  test('creates a free rule and returns 201', async () => {
+    const freeRow = { ...ONCE_RULE_ROW, status: 'free', title: 'Day off' };
+
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: FRIEND_ID }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [freeRow] });
+
+    const res = await request(app)
+      .post('/rules')
+      .set(auth())
+      .send({ ...ONCE_BODY, status: 'free', title: 'Day off' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe('free');
+  });
+
+  test('creates a daily rule and returns 201', async () => {
+    const dailyRow = {
+      ...RULE_ROW,
+      recurrence: 'daily',
+      weekdays: null,
+      date: null,
+      title: 'Standup',
+      time_start: '10:00',
+      time_end: '10:15',
+    };
+
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: FRIEND_ID }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [dailyRow] });
+
+    const res = await request(app)
+      .post('/rules')
+      .set(auth())
+      .send({ friendId: FRIEND_ID, title: 'Standup', status: 'busy', recurrence: 'daily', allDay: false, timeStart: '10:00', timeEnd: '10:15' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.recurrence).toBe('daily');
   });
 });
 
@@ -257,6 +353,24 @@ describe('PUT /rules/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.title).toBe('Deep Work');
+  });
+
+  test('can update a rule to together status', async () => {
+    const updatedRow = { ...RULE_ROW, status: 'together', title: 'Lunch' };
+
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: RULE_ID }] })
+      .mockResolvedValueOnce({ rows: [{ id: FRIEND_ID }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [updatedRow] });
+
+    const res = await request(app)
+      .put(`/rules/${RULE_ID}`)
+      .set(auth())
+      .send({ ...WEEKLY_BODY, status: 'together', title: 'Lunch' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('together');
   });
 });
 

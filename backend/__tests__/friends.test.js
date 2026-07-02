@@ -20,7 +20,19 @@ const FRIEND_ROW = {
   color: 'oklch(0.70 0.15 25)',
   description: 'Best friend',
   timezone: 'America/New_York',
+  is_self: false,
   created_at: 1000000,
+};
+
+// Personal calendar friend — auto-created once per user, is_self: true
+const PERSONAL_ROW = {
+  id: 'personal-1',
+  name: 'Me',
+  color: 'oklch(0.65 0.15 260)',
+  description: '',
+  timezone: 'UTC',
+  is_self: true,
+  created_at: 999999,
 };
 
 // ---------------------------------------------------------------------------
@@ -42,27 +54,102 @@ describe('Auth guard on /friends', () => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /friends
+// GET /friends — personal friend auto-creation
 // ---------------------------------------------------------------------------
 
-describe('GET /friends', () => {
-  test('returns list of friends for the authenticated user', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [FRIEND_ROW] });
+describe('GET /friends — personal friend auto-creation', () => {
+  test('does not insert when a personal friend already exists', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [PERSONAL_ROW, FRIEND_ROW] });
+
+    const res = await request(app).get('/friends').set(auth());
+
+    expect(res.status).toBe(200);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  test('auto-creates personal friend when no is_self record exists', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [FRIEND_ROW] })               // initial SELECT — no is_self
+      .mockResolvedValueOnce({ rows: [] })                          // INSERT personal friend
+      .mockResolvedValueOnce({ rows: [PERSONAL_ROW, FRIEND_ROW] }); // re-SELECT
+
+    const res = await request(app).get('/friends').set(auth());
+
+    expect(res.status).toBe(200);
+    expect(res.body.friends).toHaveLength(2);
+    expect(pool.query).toHaveBeenCalledTimes(3);
+  });
+
+  test('auto-creates personal friend when user has no friends at all', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [] })             // initial SELECT — empty
+      .mockResolvedValueOnce({ rows: [] })              // INSERT
+      .mockResolvedValueOnce({ rows: [PERSONAL_ROW] }); // re-SELECT
 
     const res = await request(app).get('/friends').set(auth());
 
     expect(res.status).toBe(200);
     expect(res.body.friends).toHaveLength(1);
-    expect(res.body.friends[0].name).toBe('Alice');
+    expect(pool.query).toHaveBeenCalledTimes(3);
   });
 
-  test('returns an empty list when user has no friends', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [] });
+  test('INSERT for personal friend includes is_self = true', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [PERSONAL_ROW] });
+
+    await request(app).get('/friends').set(auth());
+
+    const insertCall = pool.query.mock.calls[1];
+    expect(insertCall[0]).toMatch(/is_self/i);
+    expect(insertCall[1]).toContain(true); // the is_self value
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /friends — response shape
+// ---------------------------------------------------------------------------
+
+describe('GET /friends — response shape', () => {
+  test('returns friends list with isSelf field', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [PERSONAL_ROW, FRIEND_ROW] });
 
     const res = await request(app).get('/friends').set(auth());
 
     expect(res.status).toBe(200);
-    expect(res.body.friends).toEqual([]);
+    expect(res.body.friends).toHaveLength(2);
+    res.body.friends.forEach(f => expect(f).toHaveProperty('isSelf'));
+  });
+
+  test('personal friend has isSelf: true', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [PERSONAL_ROW, FRIEND_ROW] });
+
+    const res = await request(app).get('/friends').set(auth());
+
+    const personal = res.body.friends.find(f => f.isSelf === true);
+    expect(personal).toBeDefined();
+    expect(personal.name).toBe('Me');
+  });
+
+  test('regular friends have isSelf: false', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [PERSONAL_ROW, FRIEND_ROW] });
+
+    const res = await request(app).get('/friends').set(auth());
+
+    const regular = res.body.friends.find(f => f.name === 'Alice');
+    expect(regular).toBeDefined();
+    expect(regular.isSelf).toBe(false);
+  });
+
+  test('returns only personal friend when no regular friends have been added', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [PERSONAL_ROW] });
+
+    const res = await request(app).get('/friends').set(auth());
+
+    expect(res.status).toBe(200);
+    expect(res.body.friends).toHaveLength(1);
+    expect(res.body.friends[0].isSelf).toBe(true);
   });
 });
 
@@ -104,6 +191,35 @@ describe('POST /friends', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('Bob');
+  });
+
+  test('pickColor query excludes personal (is_self) friends', async () => {
+    // No color provided — triggers pickColor
+    pool.query
+      .mockResolvedValueOnce({ rows: [] }) // pickColor SELECT
+      .mockResolvedValueOnce({ rows: [] }); // INSERT
+
+    const res = await request(app)
+      .post('/friends')
+      .set(auth())
+      .send({ name: 'Carol' });
+
+    expect(res.status).toBe(201);
+    const pickColorCall = pool.query.mock.calls[0];
+    expect(pickColorCall[0]).toMatch(/is_self\s*=\s*false/i);
+    expect(pickColorCall[1]).toContain(USER_ID);
+  });
+
+  test('created friend has isSelf: false', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app)
+      .post('/friends')
+      .set(auth())
+      .send({ name: 'Dave', color: 'oklch(0.70 0.12 155)' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.isSelf).toBe(false);
   });
 });
 
