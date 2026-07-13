@@ -39,7 +39,7 @@ function dayNumStyle(c) {
 }
 
 // Inline EventChip (avoids re-importing, keeps status color logic local)
-function Chip({ event, friend, onClick }) {
+function Chip({ event, onClick }) {
   const cat = statusCategory(event.status);
   const fill = `var(--cat-${cat}-fill)`;
   const ink  = `var(--cat-${cat}-ink)`;
@@ -108,7 +108,7 @@ export default function MonthGrid({ cur, friend, instances, openFriendDay, openE
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '3px' }}>
                 {chips.map(e => (
-                  <Chip key={e.id} event={e} friend={friend} onClick={openEdit} />
+                  <Chip key={e.id} event={e} onClick={openEdit} />
                 ))}
                 {evs.length > 3 && (
                   <div style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-tertiary)', fontWeight: 'var(--fw-medium)', paddingLeft: '3px' }}>

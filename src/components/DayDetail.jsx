@@ -1,11 +1,6 @@
 import { prettyDate, fmtTime } from '../utils/dateUtils';
 import { Badge } from './ds.jsx';
 
-function statusTone(status) {
-  if (status === 'busy') return 'danger';
-  if (status === 'together') return 'together';
-  return 'success';
-}
 
 export default function DayDetail({ dayDetail, closeDay }) {
   if (!dayDetail) return null;

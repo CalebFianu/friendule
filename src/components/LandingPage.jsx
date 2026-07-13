@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button, Badge, Card } from './ds.jsx';
+import { Button, Badge } from './ds.jsx';
 import AuthModal from './AuthModal.jsx';
 
 /* ─── helpers ─── */
@@ -13,7 +13,7 @@ function useInView(threshold = 0.12) {
     );
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
-  }, []);
+  }, [threshold]);
   return [ref, visible];
 }
 
@@ -149,7 +149,7 @@ function VoiceDemo() {
   useEffect(() => {
     const t = setInterval(() => setStep(s => (s + 1) % phrases.length), 3000);
     return () => clearInterval(t);
-  }, []);
+  }, [phrases.length]);
 
   const p = phrases[step];
 

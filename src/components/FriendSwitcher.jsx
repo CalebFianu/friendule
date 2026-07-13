@@ -1,4 +1,4 @@
-import { Avatar, Badge, IconButton } from './ds.jsx';
+import { Badge, IconButton } from './ds.jsx';
 
 export default function FriendSwitcher({ friend, friends, friendIdx, prevFriend, nextFriend, pickFriend, openAddFriend, instances }) {
   const now = new Date();
