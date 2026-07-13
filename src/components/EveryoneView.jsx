@@ -1,115 +1,204 @@
 import { buildGrid, MONTHS, WEEKDAYS, addDays, ymd, prettyDate } from '../utils/dateUtils';
+import { IconButton } from './ds.jsx';
 
-function cellBaseStyle(c) {
+function cellStyle(c) {
   return {
-    minHeight: '94px', background: c.inMonth ? '#fff' : '#FAF4ED',
-    border: '1px solid ' + (c.isToday ? '#E69873' : '#EFE7DD'),
-    borderRadius: '14px', padding: '7px 8px', cursor: 'pointer',
+    minHeight: '88px',
+    background: c.inMonth ? 'var(--surface-card)' : 'var(--surface-sunken)',
+    border: `1px solid ${c.isToday ? 'var(--accent)' : 'var(--border-subtle)'}`,
+    borderRadius: 'var(--radius-md)',
+    padding: '7px 8px', cursor: 'pointer',
     display: 'flex', flexDirection: 'column', overflow: 'hidden',
-    boxShadow: c.isToday ? '0 0 0 2px rgba(224,122,83,.16)' : 'none',
-    opacity: c.inMonth ? 1 : .55, transition: 'border-color .15s'
+    boxShadow: c.isToday ? '0 0 0 2px var(--accent-wash)' : 'var(--shadow-xs)',
+    opacity: c.inMonth ? 1 : 0.5,
+    transition: 'border-color var(--dur-fast) var(--ease-out)',
   };
 }
 
-function numBadgeStyle(c) {
-  return c.isToday
-    ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '23px', height: '23px', padding: '0 5px', borderRadius: '999px', background: '#E07A53', color: '#fff', fontWeight: 800, fontSize: '13px', fontFamily: "'Quicksand',sans-serif" }
-    : { fontWeight: 800, fontSize: '13px', color: c.inMonth ? '#5A4F45' : '#BCAFA2', padding: '0 3px', fontFamily: "'Quicksand',sans-serif" };
+function dayNumStyle(c) {
+  if (c.isToday) {
+    return {
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      minWidth: '22px', height: '22px', padding: '0 4px',
+      borderRadius: 'var(--radius-pill)',
+      background: 'var(--accent)', color: '#fff',
+      fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-xs)',
+    };
+  }
+  return {
+    fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-xs)',
+    color: c.inMonth ? 'var(--text-secondary)' : 'var(--text-tertiary)', padding: '0 2px',
+  };
 }
 
 export default function EveryoneView({ cur, friends, everyoneFilter, busyOn, toggleEveryoneFilter, clearEveryoneFilter, prevPeriod, nextPeriod, goToday, openDay }) {
-  const filterActive = everyoneFilter.length > 0;
+  const filterActive  = everyoneFilter.length > 0;
   const filterFriends = filterActive ? friends.filter(fr => everyoneFilter.includes(fr.id)) : [];
-  const filterNames = filterFriends.map(fr => fr.firstName);
-  const everyoneFilterName = filterNames.length <= 2 ? filterNames.join(' & ') : filterNames.slice(0, -1).join(', ') + ' & ' + filterNames.slice(-1);
+  const filterNames   = filterFriends.map(fr => fr.firstName);
+  const everyoneFilterName = filterNames.length <= 2
+    ? filterNames.join(' & ')
+    : filterNames.slice(0, -1).join(', ') + ' & ' + filterNames.slice(-1);
 
   // Insight
   let insightTitle = 'Best time to gather';
   let insightLabel = 'Everyone\u2019s pretty booked the next two weeks.';
   if (filterActive) {
-    const allBusy = (y) => filterFriends.some(fr => busyOn(fr.id, y));
+    const allBusy = y => filterFriends.some(fr => busyOn(fr.id, y));
     let nf = null;
-    for (let i = 0; i < 14; i++) { const d = addDays(new Date(), i); const y2 = ymd(d); if (!allBusy(y2)) { nf = y2; break; } }
+    for (let i = 0; i < 14; i++) {
+      const d = addDays(new Date(), i);
+      const y2 = ymd(d);
+      if (!allBusy(y2)) { nf = y2; break; }
+    }
     if (filterFriends.length === 1) {
       insightTitle = 'Next free for ' + everyoneFilterName;
-      insightLabel = nf ? prettyDate(nf) + ' \u2014 ' + everyoneFilterName + ' is free' : everyoneFilterName + ' is booked the next two weeks.';
+      insightLabel = nf
+        ? prettyDate(nf) + ' \u2014 ' + everyoneFilterName + ' is free'
+        : everyoneFilterName + ' is booked the next two weeks.';
     } else {
       insightTitle = 'Best time for ' + everyoneFilterName;
-      insightLabel = nf ? prettyDate(nf) + ' \u2014 all ' + filterFriends.length + ' are free' : 'No shared free days for ' + everyoneFilterName + ' in the next two weeks.';
+      insightLabel = nf
+        ? prettyDate(nf) + ' \u2014 all ' + filterFriends.length + ' are free'
+        : 'No shared free days in the next two weeks.';
     }
   } else {
     let best = null;
     for (let i = 0; i < 14; i++) {
-      const d = addDays(new Date(), i); const y2 = ymd(d);
+      const d = addDays(new Date(), i);
+      const y2 = ymd(d);
       const freeNames = friends.filter(fr => !busyOn(fr.id, y2)).map(fr => fr.firstName);
       if (!best || freeNames.length > best.count) best = { count: freeNames.length, y: y2, names: freeNames };
       if (best.count === friends.length) break;
     }
     if (best) {
-      if (best.count === 0) insightLabel = 'No fully-free days soon \u2014 try the day view to find gaps.';
+      if (best.count === 0)              insightLabel = 'No fully-free days soon \u2014 try the day view to find gaps.';
       else if (best.count === friends.length) insightLabel = prettyDate(best.y) + ' \u2014 all ' + friends.length + ' are free!';
       else insightLabel = prettyDate(best.y) + ' \u2014 ' + best.count + ' of ' + friends.length + ' free (' + best.names.join(', ') + ')';
     }
   }
 
-  const grid = buildGrid(cur);
+  const grid       = buildGrid(cur);
   const monthLabel = MONTHS[cur.getMonth()] + ' ' + cur.getFullYear();
 
   return (
     <div style={{ animation: 'flin .25s ease both' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
-        <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '23px' }}>Everyone &middot; {monthLabel}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button style={{ width: '36px', height: '36px', borderRadius: '999px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }} onClick={prevPeriod}>&lsaquo;</button>
-          <button style={{ width: '36px', height: '36px', borderRadius: '999px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }} onClick={nextPeriod}>&rsaquo;</button>
-          <button style={{ marginLeft: '2px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', borderRadius: '999px', padding: '8px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }} onClick={goToday}>Today</button>
+      {/* Title + nav */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '8px' }}>
+        <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-h3)', color: 'var(--text-primary)' }}>
+          Everyone &middot; {monthLabel}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <IconButton shape="circle" size="md" onClick={prevPeriod} aria-label="Previous month">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </IconButton>
+          <IconButton shape="circle" size="md" onClick={nextPeriod} aria-label="Next month">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </IconButton>
+          <button
+            onClick={goToday}
+            style={{
+              border: '1px solid var(--border-strong)', background: 'var(--surface-card)',
+              color: 'var(--text-secondary)', borderRadius: 'var(--radius-pill)',
+              padding: '7px 14px', fontFamily: 'var(--font-sans)',
+              fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-sm)', cursor: 'pointer',
+              transition: 'background var(--dur-fast) var(--ease-out)',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-card)'}
+          >Today</button>
         </div>
       </div>
 
       {/* Insight banner */}
-      <div style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(118deg, oklch(0.72 0.13 48), oklch(0.66 0.155 27))', borderRadius: '22px', padding: '18px 22px', margin: '12px 0 18px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', boxShadow: '0 18px 38px -16px oklch(0.66 0.155 32 / .55)' }}>
-        <div style={{ position: 'absolute', right: '-34px', top: '-46px', width: '170px', height: '170px', borderRadius: '999px', background: 'rgba(255,255,255,.13)' }} />
-        <div style={{ position: 'absolute', right: '54px', bottom: '-66px', width: '128px', height: '128px', borderRadius: '999px', background: 'rgba(255,255,255,.08)' }} />
-        <div style={{ position: 'relative', flex: '0 0 auto', width: '48px', height: '48px', borderRadius: '15px', background: 'rgba(255,255,255,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '23px', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.25)' }}>🌿</div>
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(135deg, var(--violet-500), var(--violet-700))',
+        borderRadius: 'var(--radius-lg)',
+        padding: '18px 22px', margin: '12px 0 16px',
+        display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap',
+        boxShadow: 'var(--shadow-md)',
+      }}>
+        {/* Decorative circles */}
+        <div style={{ position: 'absolute', right: '-30px', top: '-40px', width: '160px', height: '160px', borderRadius: '50%', background: 'rgba(255,255,255,.1)' }} />
+        <div style={{ position: 'absolute', right: '60px', bottom: '-60px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(255,255,255,.07)' }} />
+        {/* Icon */}
+        <div style={{
+          position: 'relative', flex: '0 0 auto', width: '44px', height: '44px',
+          borderRadius: 'var(--radius-md)',
+          background: 'rgba(255,255,255,.2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
         <div style={{ position: 'relative' }}>
-          <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '.6px', textTransform: 'uppercase', color: 'rgba(255,255,255,.82)' }}>{insightTitle}</div>
-          <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '19px', marginTop: '2px', color: '#fff', textWrap: 'pretty' }}>{insightLabel}</div>
+          <div style={{ fontSize: 'var(--fs-2xs)', fontWeight: 'var(--fw-bold)', letterSpacing: 'var(--ls-caps)', textTransform: 'uppercase', color: 'rgba(255,255,255,.75)' }}>
+            {insightTitle}
+          </div>
+          <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-title)', marginTop: '3px', color: '#fff' }}>
+            {insightLabel}
+          </div>
         </div>
       </div>
 
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px', alignItems: 'center' }}>
+      {/* Friend filter pills */}
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px', alignItems: 'center' }}>
         {filterActive && (
-          <button style={{ display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #E07A53', background: '#FFF3EA', color: '#C0563E', borderRadius: '999px', padding: '6px 14px', cursor: 'pointer', fontWeight: 800, fontSize: '13px' }} onClick={clearEveryoneFilter}>
-            <span style={{ fontSize: '14px', lineHeight: 1 }}>✕</span>Showing {everyoneFilterName} &middot; Show all
+          <button
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              border: '1px solid var(--border-brand)',
+              background: 'var(--accent-wash)',
+              color: 'var(--text-brand)',
+              borderRadius: 'var(--radius-pill)', padding: '6px 14px',
+              cursor: 'pointer', fontFamily: 'var(--font-sans)',
+              fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-sm)',
+            }}
+            onClick={clearEveryoneFilter}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Showing {everyoneFilterName} &middot; Show all
           </button>
         )}
+
         {friends.map(fr => {
           const active = everyoneFilter.includes(fr.id);
-          const dim = filterActive && !active;
+          const dim    = filterActive && !active;
           return (
-            <button key={fr.id} onClick={() => toggleEveryoneFilter(fr.id)} style={{
-              display: 'flex', alignItems: 'center', gap: '7px',
-              border: '1px solid ' + (active ? fr.colorset.solid : '#EFE7DD'),
-              background: active ? fr.colorset.tint : '#fff',
-              borderRadius: '999px', padding: '6px 13px 6px 7px', cursor: 'pointer',
-              fontWeight: 700, fontSize: '13px', color: active ? fr.colorset.deep : '#3A322C',
-              boxShadow: active ? '0 8px 16px -7px ' + fr.colorset.solid : 'none',
-              opacity: dim ? 0.55 : 1, transition: 'all .15s'
-            }}>
-              <span style={{ width: '14px', height: '14px', borderRadius: '999px', background: fr.colorset.solid }} />{fr.firstName}
+            <button
+              key={fr.id}
+              onClick={() => toggleEveryoneFilter(fr.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '7px',
+                border: '1px solid ' + (active ? fr.colorset.solid : 'var(--border-subtle)'),
+                background: active ? fr.colorset.tint : 'var(--surface-card)',
+                borderRadius: 'var(--radius-pill)', padding: '6px 13px 6px 7px',
+                cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-sm)',
+                color: active ? fr.colorset.deep : 'var(--text-secondary)',
+                boxShadow: active ? '0 4px 12px -4px ' + fr.colorset.solid : 'none',
+                opacity: dim ? 0.5 : 1,
+                transition: 'all var(--dur-fast) var(--ease-out)',
+              }}
+            >
+              <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: fr.colorset.solid, display: 'inline-block' }} />
+              {fr.firstName}
             </button>
           );
         })}
       </div>
 
-      {/* Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '8px' }}>
+      {/* Calendar grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '6px', marginBottom: '4px' }}>
         {WEEKDAYS.map(wd => (
-          <div key={wd} style={{ textAlign: 'center', fontSize: '11.5px', fontWeight: 800, color: '#A99C8F', textTransform: 'uppercase', letterSpacing: '.6px', paddingBottom: '2px' }}>{wd}</div>
+          <div key={wd} style={{
+            textAlign: 'center', fontSize: 'var(--fs-2xs)', fontWeight: 'var(--fw-bold)',
+            color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 'var(--ls-caps)', paddingBottom: '4px',
+          }}>{wd}</div>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '8px', marginTop: '4px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '6px' }}>
         {grid.map(c => {
           const dots = [];
           let freeCount = 0, shown = 0;
@@ -120,17 +209,33 @@ export default function EveryoneView({ cur, friends, everyoneFilter, busyOn, tog
             if (busy) dots.push({ name: fr.name, color: fr.colorset.solid, id: fr.id });
             else freeCount++;
           });
-          const allFree = freeCount === shown;
+          const allFree  = freeCount === shown;
           const freeLabel = c.inMonth && allFree ? (shown === 1 ? 'free' : 'all free') : '';
           return (
-            <div key={c.ymd} style={cellBaseStyle(c)} onClick={() => openDay(c.ymd)}>
+            <div
+              key={c.ymd}
+              style={cellStyle(c)}
+              onClick={() => openDay(c.ymd)}
+              onMouseEnter={e => { if (!c.isToday) e.currentTarget.style.borderColor = 'var(--border-brand)'; }}
+              onMouseLeave={e => { if (!c.isToday) e.currentTarget.style.borderColor = 'var(--border-subtle)'; }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={numBadgeStyle(c)}>{c.day}</span>
-                {freeLabel && <span style={{ fontSize: '10px', fontWeight: 800, color: '#5BA06B', background: '#EAF6EC', borderRadius: '999px', padding: '1px 6px' }}>{freeLabel}</span>}
+                <span style={dayNumStyle(c)}>{c.day}</span>
+                {freeLabel && (
+                  <span style={{
+                    fontSize: 'var(--fs-2xs)', fontWeight: 'var(--fw-semibold)',
+                    color: 'var(--cat-mint-ink)', background: 'var(--cat-mint-fill)',
+                    borderRadius: 'var(--radius-pill)', padding: '1px 6px',
+                  }}>{freeLabel}</span>
+                )}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
                 {dots.map(dot => (
-                  <span key={dot.id} style={{ width: '10px', height: '10px', borderRadius: '999px', background: dot.color, display: 'inline-block' }} title={dot.name} />
+                  <span
+                    key={dot.id}
+                    style={{ width: '9px', height: '9px', borderRadius: '50%', background: dot.color, display: 'inline-block' }}
+                    title={dot.name}
+                  />
                 ))}
               </div>
             </div>

@@ -16,13 +16,15 @@ function formatRule(row) {
     timeEnd: row.time_end,
     date: row.date,
     weekdays: row.weekdays,
+    dateFrom: row.date_from || null,
+    dateTo: row.date_to || null,
     rawText: row.raw_text,
     createdAt: row.created_at,
   };
 }
 
 async function validateRule(body, userId) {
-  const { friendId, title, status, recurrence, allDay, timeStart, timeEnd, date, weekdays } = body || {};
+  const { friendId, title, status, recurrence, allDay, timeStart, timeEnd, date, weekdays, dateFrom, dateTo } = body || {};
 
   if (!friendId) return 'friendId is required.';
   const { rows } = await pool.query('SELECT id FROM friends WHERE id = $1 AND owner_id = $2', [friendId, userId]);
@@ -65,13 +67,13 @@ router.post('/', async (req, res) => {
   const err = await validateRule(req.body, req.userId);
   if (err) return res.status(400).json({ error: err });
 
-  const { friendId, title, status, recurrence, allDay, timeStart, timeEnd, date, weekdays, rawText } = req.body;
+  const { friendId, title, status, recurrence, allDay, timeStart, timeEnd, date, weekdays, dateFrom, dateTo, rawText } = req.body;
   const id = uuid();
   const now = Date.now();
 
   await pool.query(
-    `INSERT INTO rules (id, friend_id, owner_id, title, status, recurrence, all_day, time_start, time_end, date, weekdays, raw_text, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    `INSERT INTO rules (id, friend_id, owner_id, title, status, recurrence, all_day, time_start, time_end, date, weekdays, date_from, date_to, raw_text, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
     [
       id, friendId, req.userId, title.trim(), status, recurrence,
       !!allDay,
@@ -79,6 +81,8 @@ router.post('/', async (req, res) => {
       allDay ? null : timeEnd,
       recurrence === 'once' ? date : null,
       recurrence === 'weekly' ? JSON.stringify(weekdays) : null,
+      dateFrom || null,
+      dateTo || null,
       rawText || '',
       now
     ]
@@ -96,10 +100,10 @@ router.put('/:id', async (req, res) => {
   const err = await validateRule(req.body, req.userId);
   if (err) return res.status(400).json({ error: err });
 
-  const { friendId, title, status, recurrence, allDay, timeStart, timeEnd, date, weekdays, rawText } = req.body;
+  const { friendId, title, status, recurrence, allDay, timeStart, timeEnd, date, weekdays, dateFrom, dateTo, rawText } = req.body;
 
   await pool.query(
-    `UPDATE rules SET friend_id=$1, title=$2, status=$3, recurrence=$4, all_day=$5, time_start=$6, time_end=$7, date=$8, weekdays=$9, raw_text=$10 WHERE id=$11`,
+    `UPDATE rules SET friend_id=$1, title=$2, status=$3, recurrence=$4, all_day=$5, time_start=$6, time_end=$7, date=$8, weekdays=$9, date_from=$10, date_to=$11, raw_text=$12 WHERE id=$13`,
     [
       friendId, title.trim(), status, recurrence,
       !!allDay,
@@ -107,6 +111,8 @@ router.put('/:id', async (req, res) => {
       allDay ? null : timeEnd,
       recurrence === 'once' ? date : null,
       recurrence === 'weekly' ? JSON.stringify(weekdays) : null,
+      dateFrom || null,
+      dateTo || null,
       rawText || '',
       req.params.id
     ]

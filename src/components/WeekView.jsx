@@ -1,12 +1,18 @@
 import { ymd, addDays, fmtTime, WEEKDAYS } from '../utils/dateUtils';
 
-const HOUR_PX = 46;
+const HOUR_PX    = 46;
 const RAIL_START = 6;
-const RAIL_END = 23;
+const RAIL_END   = 23;
+
+function statusCat(status) {
+  if (status === 'busy')    return 'rose';
+  if (status === 'together') return 'violet';
+  return 'mint';
+}
 
 export default function WeekView({ cur, friend, instances, openFriendDay, openEdit }) {
   const todayY = ymd(new Date());
-  const now = new Date();
+  const now    = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const totalPx = (RAIL_END - RAIL_START) * HOUR_PX;
   const ws = addDays(cur, -cur.getDay());
@@ -14,68 +20,107 @@ export default function WeekView({ cur, friend, instances, openFriendDay, openEd
   const weekHours = [];
   for (let h = RAIL_START; h < RAIL_END; h++) {
     const ap = h < 12 ? 'AM' : 'PM';
-    let hh = h % 12;
-    if (hh === 0) hh = 12;
+    let hh = h % 12; if (hh === 0) hh = 12;
     weekHours.push({ label: hh + ' ' + ap, hour: h });
   }
 
   const weekDays = [];
   for (let i = 0; i < 7; i++) {
-    const d = addDays(ws, i);
-    const y = ymd(d);
+    const d  = addDays(ws, i);
+    const y  = ymd(d);
     const isT = y === todayY;
-    const wd = d.getDay();
-    const inst = instances(friend.id, y);
+    const inst   = instances(friend.id, y);
     const allDay = inst.filter(e => e.allDay);
-    const timed = inst.filter(e => !e.allDay);
-
+    const timed  = inst.filter(e => !e.allDay);
     let nowTop = null;
     if (isT && nowMin >= RAIL_START * 60 && nowMin <= RAIL_END * 60) {
       nowTop = ((nowMin - RAIL_START * 60) / 60) * HOUR_PX;
     }
-
-    weekDays.push({ d, y, isT, wd, allDay, timed, dayNum: d.getDate(), nowTop });
+    weekDays.push({ d, y, isT, wd: d.getDay(), allDay, timed, dayNum: d.getDate(), nowTop });
   }
 
   return (
-    <div style={{ border: '1px solid #EFE7DD', borderRadius: '20px', background: '#fff', overflow: 'hidden' }}>
+    <div style={{
+      border: '1px solid var(--border-subtle)',
+      borderRadius: 'var(--radius-lg)',
+      background: 'var(--surface-card)',
+      overflow: 'hidden',
+      boxShadow: 'var(--shadow-sm)',
+    }}>
       <div style={{ overflow: 'auto', maxHeight: '70vh' }}>
         <div style={{ minWidth: '780px' }}>
-          {/* Header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '58px repeat(7,1fr)', position: 'sticky', top: 0, background: '#fff', zIndex: 6, borderBottom: '1px solid #EFE7DD' }}>
+
+          {/* Day header row */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '56px repeat(7,1fr)',
+            position: 'sticky', top: 0,
+            background: 'var(--surface-card)', zIndex: 6,
+            borderBottom: '1px solid var(--border-subtle)',
+          }}>
             <div />
             {weekDays.map(day => (
-              <div key={day.y} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '10px 4px', borderLeft: '1px solid #F1EAE0', background: day.isT ? '#FFF6F0' : '#fff' }}>
-                <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#A99C8F', textTransform: 'uppercase', letterSpacing: '.5px' }}>{WEEKDAYS[day.wd]}</span>
-                <span style={day.isT
-                  ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '999px', background: '#E07A53', color: '#fff', fontWeight: 800, fontSize: '13px', fontFamily: "'Quicksand',sans-serif" }
-                  : { fontWeight: 800, fontSize: '15px', fontFamily: "'Quicksand',sans-serif", color: '#3A322C' }
-                }>{day.dayNum}</span>
+              <div key={day.y} style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                padding: '10px 4px',
+                borderLeft: '1px solid var(--border-subtle)',
+                background: day.isT ? 'var(--accent-wash)' : 'var(--surface-card)',
+              }}>
+                <span style={{
+                  fontSize: 'var(--fs-2xs)', fontWeight: 'var(--fw-bold)',
+                  color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 'var(--ls-caps)',
+                }}>{WEEKDAYS[day.wd]}</span>
+                <span style={day.isT ? {
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  background: 'var(--accent)', color: '#fff',
+                  fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-sm)',
+                } : {
+                  fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)',
+                  fontSize: 'var(--fs-sm)', color: 'var(--text-primary)',
+                }}>{day.dayNum}</span>
               </div>
             ))}
           </div>
 
           {/* All-day row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '58px repeat(7,1fr)', borderBottom: '1px solid #EFE7DD', background: '#FCFAF6' }}>
-            <div style={{ fontSize: '10px', color: '#A99C8F', fontWeight: 700, textAlign: 'right', padding: '8px 6px 0 0' }}>all-day</div>
+          <div style={{
+            display: 'grid', gridTemplateColumns: '56px repeat(7,1fr)',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: 'var(--surface-sunken)',
+          }}>
+            <div style={{
+              fontSize: 'var(--fs-2xs)', color: 'var(--text-tertiary)', fontWeight: 'var(--fw-semibold)',
+              textAlign: 'right', padding: '8px 6px 0 0', textTransform: 'uppercase', letterSpacing: 'var(--ls-caps)',
+            }}>all-day</div>
             {weekDays.map(day => (
-              <div key={day.y} style={{ padding: '5px', display: 'flex', flexDirection: 'column', gap: '3px', borderLeft: '1px solid #F1EAE0', minHeight: '30px' }}>
+              <div key={day.y} style={{
+                padding: '4px',
+                display: 'flex', flexDirection: 'column', gap: '2px',
+                borderLeft: '1px solid var(--border-subtle)',
+                minHeight: '28px',
+              }}>
                 {day.allDay.map(e => {
-                  const cs = friend.colorset;
-                  const base = { display: 'flex', alignItems: 'center', gap: '3px', borderRadius: '7px', fontSize: '11px', fontWeight: 700, overflow: 'hidden', cursor: 'pointer', lineHeight: '1.55' };
-                  const allDayStyle = e.status === 'busy'
-                    ? { ...base, background: cs.solid, color: '#fff', padding: '2px 7px' }
-                    : e.status === 'together'
-                    ? { ...base, background: '#FDE8F5', color: '#A0357A', border: '1px solid #F3BBE0', padding: '1px 6px' }
-                    : { ...base, background: cs.tint, color: cs.deep, border: '1px solid ' + cs.tintBorder, padding: '1px 6px' };
+                  const cat  = statusCat(e.status);
+                  const fill = `var(--cat-${cat}-fill)`;
+                  const ink  = `var(--cat-${cat}-ink)`;
                   return (
-                    <div key={e.id} onClick={ev => { ev.stopPropagation(); openEdit(e); }} style={allDayStyle}>
+                    <div
+                      key={e.id}
+                      onClick={ev => { ev.stopPropagation(); openEdit(e); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        padding: '2px 7px', borderRadius: 'var(--radius-xs)',
+                        background: fill, borderLeft: `3px solid ${ink}`,
+                        cursor: 'pointer', overflow: 'hidden',
+                      }}
+                    >
                       {e.fromFriend && (
-                        <span style={{ flexShrink: 0, width: '12px', height: '12px', borderRadius: '999px', background: e.fromFriend.colorset.solid, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '7px', color: '#fff', fontWeight: 800 }}>
-                          {e.fromFriend.initials[0]}
-                        </span>
+                        <span style={{ flexShrink: 0, width: '8px', height: '8px', borderRadius: '50%', background: e.fromFriend.colorset.solid }} />
                       )}
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</span>
+                      <span style={{
+                        fontSize: 'var(--fs-2xs)', fontWeight: 'var(--fw-semibold)', color: ink,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>{e.title}</span>
                     </div>
                   );
                 })}
@@ -84,49 +129,99 @@ export default function WeekView({ cur, friend, instances, openFriendDay, openEd
           </div>
 
           {/* Time grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '58px repeat(7,1fr)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '56px repeat(7,1fr)' }}>
+            {/* Hour labels */}
             <div style={{ position: 'relative' }}>
-              {weekHours.map((h) => (
-                <div key={h.hour} style={{ height: HOUR_PX + 'px', fontSize: '10px', color: '#A99C8F', fontWeight: 700, textAlign: 'right', paddingRight: '7px', transform: 'translateY(-7px)' }}>{h.label}</div>
+              {weekHours.map(h => (
+                <div key={h.hour} style={{
+                  height: HOUR_PX + 'px',
+                  fontSize: 'var(--fs-2xs)', color: 'var(--text-tertiary)', fontWeight: 'var(--fw-medium)',
+                  textAlign: 'right', paddingRight: '8px',
+                  fontFamily: 'var(--font-mono)',
+                  transform: 'translateY(-7px)',
+                }}>{h.label}</div>
               ))}
             </div>
+
+            {/* Day columns */}
             {weekDays.map(day => (
-              <div key={day.y} style={{ position: 'relative', height: totalPx + 'px', borderLeft: '1px solid #F1EAE0', background: 'repeating-linear-gradient(to bottom,#F4EDE3 0,#F4EDE3 1px,transparent 1px,transparent ' + HOUR_PX + 'px)' }}>
+              <div key={day.y} style={{
+                position: 'relative', height: totalPx + 'px',
+                borderLeft: '1px solid var(--border-subtle)',
+                background: `repeating-linear-gradient(to bottom, var(--border-subtle) 0, var(--border-subtle) 1px, transparent 1px, transparent ${HOUR_PX}px)`,
+              }}>
                 {/* Clickable hour cells */}
                 {weekHours.map((h, hi) => (
-                  <div key={h.hour} style={{ position: 'absolute', left: 0, right: 0, top: (hi * HOUR_PX) + 'px', height: HOUR_PX + 'px', cursor: 'pointer' }} onClick={() => openFriendDay(day.y, (RAIL_START + hi) * 60)} />
+                  <div
+                    key={h.hour}
+                    style={{ position: 'absolute', left: 0, right: 0, top: (hi * HOUR_PX) + 'px', height: HOUR_PX + 'px', cursor: 'pointer' }}
+                    onClick={() => openFriendDay(day.y, (RAIL_START + hi) * 60)}
+                  />
                 ))}
+
                 {/* Timed events */}
                 {day.timed.map(e => {
-                  const top = Math.max(0, ((e.startMin - RAIL_START * 60) / 60) * HOUR_PX);
+                  const top    = Math.max(0, ((e.startMin - RAIL_START * 60) / 60) * HOUR_PX);
                   const bottom = ((Math.min(e.endMin, RAIL_END * 60) - RAIL_START * 60) / 60) * HOUR_PX;
-                  const cs = friend.colorset;
-                  const timedBg = e.status === 'busy' ? cs.solid : e.status === 'together' ? '#FDE8F5' : '#E6F4ED';
-                  const timedColor = e.status === 'busy' ? '#fff' : e.status === 'together' ? '#A0357A' : '#2A7A50';
-                  const timedBorder = e.status === 'busy' ? 'none' : e.status === 'together' ? '1px dashed #F3BBE0' : '1px dashed #9ECDB0';
+                  const cat    = statusCat(e.status);
+                  const fill   = `var(--cat-${cat}-fill)`;
+                  const ink    = `var(--cat-${cat}-ink)`;
                   return (
-                    <div key={e.id} onClick={ev => { ev.stopPropagation(); openEdit(e); }} style={{
-                      position: 'absolute', top: top + 'px', height: Math.max(20, bottom - top) + 'px',
-                      left: '3px', right: '3px', borderRadius: '9px', padding: '3px 7px', overflow: 'hidden', cursor: 'pointer',
-                      background: timedBg, color: timedColor, border: timedBorder
-                    }}>
-                      <div style={{ fontWeight: 800, fontSize: '11.5px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: e.fromFriend ? '18px' : '0' }}>{e.title}</div>
-                      <div style={{ fontSize: '10px', fontWeight: 700, opacity: .85, marginTop: '1px' }}>{fmtTime(e.startMin)}–{fmtTime(e.endMin)}</div>
+                    <div
+                      key={e.id}
+                      onClick={ev => { ev.stopPropagation(); openEdit(e); }}
+                      style={{
+                        position: 'absolute', top: top + 'px', height: Math.max(20, bottom - top) + 'px',
+                        left: '3px', right: '3px',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '3px 7px', overflow: 'hidden', cursor: 'pointer',
+                        background: fill,
+                        borderLeft: `3px solid ${ink}`,
+                        transition: 'filter var(--dur-fast) var(--ease-out)',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.97)'}
+                      onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                    >
+                      <div style={{
+                        fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-semibold)',
+                        fontSize: 'var(--fs-xs)', color: ink,
+                        lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        paddingRight: e.fromFriend ? '18px' : '0',
+                      }}>{e.title}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-2xs)', fontWeight: 500, color: ink, opacity: 0.85, marginTop: '1px' }}>
+                        {fmtTime(e.startMin)}–{fmtTime(e.endMin)}
+                      </div>
                       {e.fromFriend && (
-                        <div style={{ position: 'absolute', top: '4px', right: '5px', width: '14px', height: '14px', borderRadius: '999px', background: e.fromFriend.colorset.solid, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: '#fff', fontWeight: 800 }}>
-                          {e.fromFriend.initials[0]}
-                        </div>
+                        <span style={{
+                          position: 'absolute', top: '4px', right: '5px',
+                          width: '12px', height: '12px', borderRadius: '50%',
+                          background: e.fromFriend.colorset.solid,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '7px', color: '#fff', fontWeight: 'var(--fw-bold)',
+                        }}>{e.fromFriend.initials[0]}</span>
                       )}
                     </div>
                   );
                 })}
+
                 {/* Now indicator */}
                 {day.nowTop != null && (
-                  <div style={{ position: 'absolute', left: 0, right: 0, top: day.nowTop + 'px', height: '2px', background: '#E07A53', zIndex: 5, boxShadow: '0 0 0 3px rgba(224,122,83,.12)' }} />
+                  <div style={{
+                    position: 'absolute', left: 0, right: 0, top: day.nowTop + 'px',
+                    height: '2px', background: 'var(--accent)', zIndex: 5,
+                    boxShadow: '0 0 0 3px var(--accent-wash)',
+                  }}>
+                    <div style={{
+                      position: 'absolute', left: '-4px', top: '-4px',
+                      width: '10px', height: '10px', borderRadius: '50%',
+                      background: 'var(--accent)',
+                    }} />
+                  </div>
                 )}
               </div>
             ))}
           </div>
+
         </div>
       </div>
     </div>

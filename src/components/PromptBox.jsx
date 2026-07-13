@@ -1,20 +1,30 @@
 import { useState, useRef } from 'react';
 
-const EXAMPLES = ['Busy weekdays 9\u20135', 'Gym Mon & Wed 7am', 'Free this weekend', 'Remove gym', 'Clear Monday events', 'Change work to 10\u20136'];
+const EXAMPLES = [
+  'Busy weekdays 9\u20135',
+  'Gym Mon & Wed 7am',
+  'Free this weekend',
+  'Remove gym',
+  'Clear Monday events',
+  'Change work to 10\u20136',
+];
 
 function getMimeType() {
-  const candidates = [
-    'audio/webm;codecs=opus',
-    'audio/webm',
-    'audio/ogg;codecs=opus',
-    'audio/mp4',
-  ];
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
   return candidates.find(t => MediaRecorder.isTypeSupported(t)) || '';
 }
 
 const hasSpeechRecognition = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
-export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, parsing, clarification, setClarification, transcribe }) {
+function EqualizerIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M11 8h2v8h-2zm8 2h2v4h-2zm-4-5h2v14h-2zM7 3h2v18H7zM3 9h2v6H3z" />
+    </svg>
+  );
+}
+
+export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, parsing, transcribe }) {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [micError, setMicError] = useState(null);
@@ -22,7 +32,6 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
   const recorderRef    = useRef(null);
   const chunksRef      = useRef([]);
   const recognitionRef = useRef(null);
-  // Accumulates the Web Speech API "final" segments so interim additions are correct
   const liveBaseRef    = useRef('');
 
   const busy = parsing || transcribing;
@@ -36,65 +45,48 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
     liveBaseRef.current = '';
     setPrompt('');
 
-    // ── Web Speech API — live interim display ──────────────────────────────
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      recognition.continuous     = true;
+      recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang           = 'en-US';
-
+      recognition.lang = 'en-US';
       recognition.onresult = event => {
         let interim = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const t = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            liveBaseRef.current += t + ' ';
-          } else {
-            interim = t;
-          }
+          if (event.results[i].isFinal) liveBaseRef.current += t + ' ';
+          else interim = t;
         }
         setPrompt(liveBaseRef.current + interim);
-        if (clarification) setClarification(null);
       };
-
-      recognition.onerror = () => {}; // non-fatal — Groq will be the source of truth
-
+      recognition.onerror = () => {};
       try {
         recognition.start();
         recognitionRef.current = recognition;
-      } catch { /* browser may deny a second start */ }
+      } catch { /* ignore */ }
     }
 
-    // ── MediaRecorder — audio for Groq ────────────────────────────────────
     try {
-      const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = getMimeType();
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       chunksRef.current = [];
-
       recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
         setTranscribing(true);
-
         try {
           const reader = new FileReader();
           reader.readAsDataURL(blob);
           reader.onloadend = async () => {
             try {
               const base64 = reader.result.split(',')[1];
-              const data   = await transcribe(base64, mimeType || 'audio/webm');
-              if (data?.text) {
-                // Groq's result replaces the live interim text
-                setPrompt(data.text);
-                if (clarification) setClarification(null);
-              }
+              const data = await transcribe(base64, mimeType || 'audio/webm');
+              if (data?.text) { setPrompt(data.text); }
             } catch (err) {
               setMicError('Transcription failed — ' + err.message);
-              // Keep whatever the live transcript captured as a fallback
             } finally {
               setTranscribing(false);
             }
@@ -104,12 +96,10 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
           setTranscribing(false);
         }
       };
-
       recorder.start();
       recorderRef.current = recorder;
       setRecording(true);
     } catch {
-      // Stop recognition if mic access was denied
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch { /* ignore */ }
         recognitionRef.current = null;
@@ -135,183 +125,191 @@ export default function PromptBox({ friend, prompt, setPrompt, commitPrompt, par
     else startRecording();
   };
 
-  // Mic button styling
-  let micBg    = '#F5ECE4';
-  let micColor = '#9A6B4B';
-  let micTitle = 'Click to record';
-  if (recording)     { micBg = '#C04040'; micColor = '#fff'; micTitle = 'Recording — click to stop'; }
-  if (transcribing)  { micBg = '#E0D4C8'; micColor = '#7A6E64'; micTitle = 'Transcribing\u2026'; }
+  const inputBorderColor = recording ? 'var(--danger)' : busy ? 'var(--border-strong)' : 'var(--border-brand)';
 
   return (
-    <div style={{ background: 'linear-gradient(180deg,#FFF8F2,#FFFDFB)', border: '1px solid #F1E2D4', borderRadius: '22px', padding: '16px 18px', marginTop: '14px' }}>
+    <div style={{
+      background: 'var(--surface-card)',
+      border: '1px solid var(--border-subtle)',
+      borderRadius: 'var(--radius-lg)',
+      padding: '16px 18px',
+      marginTop: '14px',
+      boxShadow: 'var(--shadow-sm)',
+    }}>
+      {/* Label row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-        <span style={{ fontSize: '15px' }}>{busy ? '\u231B' : '\u2726'}</span>
-        <span style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '.2px', whiteSpace: 'nowrap' }}>
-          {friend.isSelf ? 'Add, update or remove your schedule' : 'Add, update or remove ' + friend.firstName + '\u2019s schedule'}
+        <span style={{ fontSize: 'var(--fs-sm)', color: busy ? 'var(--text-tertiary)' : 'var(--accent)', transition: 'color var(--dur-base)' }}>
+          {busy
+            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin .8s linear infinite', display: 'block' }}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            : <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          }
+        </span>
+        <span style={{ fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-sm)', color: 'var(--text-primary)' }}>
+          {friend.isSelf
+            ? 'Add, update or remove your schedule'
+            : 'Add, update or remove ' + friend.firstName + '\u2019s schedule'}
         </span>
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'stretch' }}>
-        {/* Text input — read-only while recording so live text renders without caret confusion */}
-        <input
-          value={prompt}
-          onChange={e => {
-            if (recording) return;
-            setPrompt(e.target.value);
-            if (clarification) setClarification(null);
-          }}
-          onKeyDown={e => { if (e.key === 'Enter' && !recording) { e.preventDefault(); handleSubmit(); } }}
-          placeholder={
-            recording && !hasSpeechRecognition
-              ? 'Listening\u2026 click the mic to stop'
-              : 'e.g. Busy weekdays 9\u20135 \u2022 Remove gym \u2022 Change work hours to 10\u20136'
-          }
-          readOnly={recording}
-          disabled={busy}
-          style={{
-            flex: '1 1 280px', minWidth: 0,
-            border: `1px solid ${recording ? '#F5C4C4' : '#ECD9C8'}`,
-            background: busy ? '#F9F3EC' : recording ? '#FFF8F8' : '#fff',
-            borderRadius: '14px', padding: '13px 15px',
-            fontSize: '15px', fontWeight: 600, color: '#3A322C',
-            outline: 'none',
-            opacity: busy ? 0.7 : 1,
-            transition: 'border-color .2s, background .2s',
-          }}
-        />
+      {/* Input row */}
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'stretch' }}>
+        {/* Text input + voice button inside */}
+        <div style={{
+          flex: '1 1 280px', minWidth: 0,
+          display: 'flex', alignItems: 'center', gap: '6px',
+          height: '48px', padding: '0 6px 0 14px',
+          background: 'var(--surface-card)',
+          border: `1px solid ${inputBorderColor}`,
+          borderRadius: 'var(--radius-md)',
+          boxShadow: recording ? `0 0 0 var(--ring-width) color-mix(in srgb, var(--danger) 30%, transparent)` : `0 0 0 var(--ring-width) var(--focus-ring)`,
+          transition: 'border-color var(--dur-fast), box-shadow var(--dur-fast)',
+        }}>
+          <input
+            value={prompt}
+            onChange={e => {
+              if (recording) return;
+              setPrompt(e.target.value);
+            }}
+            onKeyDown={e => { if (e.key === 'Enter' && !recording) { e.preventDefault(); handleSubmit(); } }}
+            placeholder={
+              recording && !hasSpeechRecognition
+                ? 'Listening\u2026 click the mic to stop'
+                : 'e.g. Busy weekdays 9\u20135 \u2022 Remove gym \u2022 Change work hours to 10\u20136'
+            }
+            readOnly={recording}
+            disabled={busy}
+            style={{
+              flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--fs-body)', color: 'var(--text-primary)',
+              opacity: busy ? 0.6 : 1,
+            }}
+          />
+          {/* Voice button */}
+          <button
+            onClick={toggleRecording}
+            disabled={busy}
+            title={recording ? 'Recording — click to stop' : 'Click to record'}
+            style={{
+              flexShrink: 0, width: '36px', height: '36px', padding: 0,
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              cursor: busy ? 'not-allowed' : 'pointer',
+              background: recording ? 'var(--danger)' : 'var(--accent-wash)',
+              color: recording ? '#fff' : 'var(--text-brand)',
+              transition: 'background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out)',
+            }}
+            onMouseDown={e => { if (!busy) e.currentTarget.style.transform = 'scale(0.9)'; }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+          >
+            {transcribing
+              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin .8s linear infinite' }}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              : recording
+              ? <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff', display: 'block', animation: 'pulse 1s ease-in-out infinite' }} />
+              : <EqualizerIcon size={16} />
+            }
+          </button>
+        </div>
 
-        {/* Mic button */}
-        <button
-          onClick={toggleRecording}
-          disabled={busy}
-          title={micTitle}
-          style={{
-            flex: '0 0 auto', border: 'none', borderRadius: '14px',
-            width: '48px', cursor: busy ? 'not-allowed' : 'pointer',
-            background: micBg, color: micColor,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '20px', transition: 'background .2s, color .2s',
-          }}
-        >
-          {transcribing
-            ? <span style={{ fontSize: '13px', fontWeight: 800, animation: 'fldots 1.2s steps(3,end) infinite' }}>&#9696;</span>
-            : recording
-            ? <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fff', display: 'block', animation: 'pulse 1s ease-in-out infinite' }} />
-            : <span>&#127908;</span>
-          }
-        </button>
-
-        {/* Submit */}
+        {/* Submit button */}
         <button
           disabled={busy || recording}
           onClick={handleSubmit}
           style={{
-            flex: '0 0 auto', border: 'none',
-            background: (busy || recording) ? '#C19478' : '#E07A53',
-            color: '#fff', borderRadius: '14px', padding: '0 22px',
-            fontWeight: 800, fontSize: '15px',
+            flexShrink: 0, border: 'none', height: '48px',
+            background: (busy || recording) ? 'var(--border-strong)' : 'var(--accent)',
+            color: '#fff', borderRadius: 'var(--radius-md)', padding: '0 22px',
+            fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-body)',
             cursor: (busy || recording) ? 'not-allowed' : 'pointer',
-            minWidth: '120px',
+            minWidth: '110px', boxShadow: (busy || recording) ? 'none' : 'var(--shadow-sm)',
+            transition: 'background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out)',
           }}
+          onMouseEnter={e => { if (!busy && !recording) e.currentTarget.style.filter = 'brightness(1.06)'; }}
+          onMouseLeave={e => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.transform = 'scale(1)'; }}
+          onMouseDown={e => { if (!busy && !recording) e.currentTarget.style.transform = 'scale(0.97)'; }}
+          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
         >
           {parsing ? 'Thinking\u2026' : transcribing ? 'Transcribing\u2026' : 'Submit'}
         </button>
       </div>
 
-      {/* Recording status bar */}
+      {/* Status banners */}
       {recording && (
         <div style={{
-          marginTop: '11px', padding: '9px 14px',
-          background: '#FEF0F0', border: '1px solid #F5C4C4',
-          borderRadius: '12px', fontSize: '13px', fontWeight: 700, color: '#8B2020',
+          marginTop: '10px', padding: '8px 14px',
+          background: 'var(--cat-rose-fill)',
+          border: '1px solid var(--cat-rose-ink)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 'var(--fs-xs)', fontWeight: 'var(--fw-semibold)', color: 'var(--cat-rose-ink)',
           display: 'flex', alignItems: 'center', gap: '8px',
         }}>
-          <span style={{
-            width: '7px', height: '7px', borderRadius: '50%', background: '#C04040',
-            display: 'inline-block', flexShrink: 0,
-            animation: 'pulse 1s ease-in-out infinite',
-          }} />
+          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--danger)', display: 'inline-block', flexShrink: 0, animation: 'pulse 1s ease-in-out infinite' }} />
           {hasSpeechRecognition
-            ? 'Live preview — We will refine the transcript when you stop speaking'
+            ? 'Live preview — transcript refines when you stop speaking'
             : 'Recording\u2026 click the mic button again to stop'}
         </div>
       )}
 
-      {/* Transcribing status bar */}
       {transcribing && (
         <div style={{
-          marginTop: '11px', padding: '9px 14px',
-          background: '#F4F0FF', border: '1px solid #D8CCFF',
-          borderRadius: '12px', fontSize: '13px', fontWeight: 700, color: '#5040A0',
+          marginTop: '10px', padding: '8px 14px',
+          background: 'var(--cat-violet-fill)',
+          border: '1px solid var(--cat-violet-ink)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 'var(--fs-xs)', fontWeight: 'var(--fw-semibold)', color: 'var(--cat-violet-ink)',
           display: 'flex', alignItems: 'center', gap: '8px',
         }}>
-          <span style={{ fontSize: '14px', animation: 'spin .8s linear infinite', display: 'inline-block' }}>&#9696;</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin .8s linear infinite', flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           Sending to Groq Whisper for final transcription\u2026
         </div>
       )}
 
-      {/* Clarification banner */}
-      {!recording && !transcribing && clarification && (
-        <div style={{
-          marginTop: '11px', padding: '10px 14px', background: '#FFF4E0', border: '1px solid #F0D9A0',
-          borderRadius: '12px', fontSize: '13.5px', fontWeight: 700, color: '#7A5F2E',
-          display: 'flex', alignItems: 'flex-start', gap: '8px',
-        }}>
-          <span style={{ fontSize: '16px', lineHeight: 1 }}>?</span>
-          <span>{clarification}</span>
-        </div>
-      )}
-
-      {/* Mic error */}
       {micError && (
         <div style={{
-          marginTop: '11px', padding: '9px 14px', background: '#FEF0F0', border: '1px solid #F5C4C4',
-          borderRadius: '12px', fontSize: '13px', fontWeight: 700, color: '#8B2020',
+          marginTop: '10px', padding: '8px 14px',
+          background: 'var(--cat-rose-fill)',
+          border: '1px solid var(--cat-rose-ink)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 'var(--fs-xs)', fontWeight: 'var(--fw-semibold)', color: 'var(--cat-rose-ink)',
           display: 'flex', alignItems: 'center', gap: '8px',
         }}>
-          <span>&#9888;</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <span>{micError}</span>
         </div>
       )}
 
-      {/* Hint */}
-      {!recording && !transcribing && !clarification && !micError && (
-        <div style={{ marginTop: '11px', fontSize: '13px', fontWeight: 700, color: '#B6A99C', minHeight: '18px' }}>
-          {parsing
-            ? 'Interpreting\u2026'
-            : 'Describe, remove, or update a schedule and we will handle it.'}
+      {!recording && !transcribing && !micError && (
+        <div style={{ marginTop: '10px', fontSize: 'var(--fs-xs)', color: 'var(--text-tertiary)', minHeight: '16px' }}>
+          {parsing ? 'Interpreting\u2026' : 'Describe, remove, or update a schedule and we\u2019ll handle it.'}
         </div>
       )}
 
       {/* Example chips */}
-      <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', marginTop: '11px' }}>
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
         {EXAMPLES.map(ex => (
           <button
             key={ex}
             disabled={busy || recording}
             style={{
-              border: '1px dashed #E3CFBC', background: '#fff', color: '#9A6B4B',
-              borderRadius: '999px', padding: '6px 12px', fontSize: '12.5px', fontWeight: 700,
+              border: '1px solid var(--border-strong)',
+              background: 'var(--surface-sunken)',
+              color: 'var(--text-secondary)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '5px 12px',
+              fontSize: 'var(--fs-xs)', fontWeight: 'var(--fw-medium)',
               cursor: (busy || recording) ? 'default' : 'pointer',
               opacity: (busy || recording) ? 0.5 : 1,
+              fontFamily: 'var(--font-sans)',
+              transition: 'background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast)',
             }}
-            onClick={() => { setPrompt(ex); if (clarification) setClarification(null); }}
+            onMouseEnter={e => { if (!busy && !recording) { e.currentTarget.style.background = 'var(--accent-wash)'; e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text-brand)'; } }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-sunken)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            onClick={() => { setPrompt(ex); }}
           >
             {ex}
           </button>
         ))}
       </div>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.35; transform: scale(0.8); }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

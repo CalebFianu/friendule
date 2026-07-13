@@ -33,7 +33,9 @@ Return ONLY valid JSON (no markdown, no explanation) matching one of these schem
       "all_day": true | false,
       "time_start": "HH:MM",   // Required when all_day is false. Omit when all_day is true.
       "time_end": "HH:MM",     // Required when all_day is false. Omit when all_day is true.
-      "date": "YYYY-MM-DD"     // Required for once. Omit for weekly/daily.
+      "date": "YYYY-MM-DD",    // Required for once. Omit for weekly/daily.
+      "date_from": "YYYY-MM-DD" | null,  // Optional start bound for weekly/daily rules (inclusive).
+      "date_to": "YYYY-MM-DD" | null     // Optional end bound for weekly/daily rules (inclusive).
     }
   ],
   "clarification_needed": null | "question to ask the user"
@@ -91,6 +93,15 @@ Return ONLY valid JSON (no markdown, no explanation) matching one of these schem
 - Day name without "every" or plural (e.g. "Tuesday") → recurrence: "once", date: next occurrence of that weekday.
 - "every Tuesday" or "Tuesdays" (plural) → weekly.
 - Keep titles concise — extract the activity, not the full sentence.
+- CRITICAL — "not free [day]" / "not available [day]" / "busy [day]" → intent: "create", status: "busy", recurrence: "once", date: that specific day. Do NOT use delete. This creates a one-off busy block that overrides any recurring free rule for that day only.
+- CRITICAL — "not busy [day]" / "free [day]" → intent: "create", status: "free", recurrence: "once", date: that specific day.
+- CRITICAL — Date-bounded recurring rules: when a phrase like "for the rest of [month]", "this week only", "until [date]", "through [date]", "for the next N weeks/days", or "starting [date]" appears alongside a weekly or daily rule, set date_from and/or date_to rather than creating many "once" rules.
+  - "for the rest of July" → date_to: last day of July ("YYYY-07-31"), date_from: today or the first applicable day
+  - "this week only" → date_from: this Monday, date_to: this Sunday
+  - "until August 15" → date_to: "YYYY-08-15"
+  - "for the next 3 weeks" → date_to: today + 21 days
+  - "starting next Monday" with a weekly rule → date_from: next Monday's date
+  - Without any bound phrase, leave date_from and date_to as null.
 
 ─────────── DELETE/UPDATE RULES ───────────
 - Use clarification_needed when it's unclear which rules to target (e.g. "remove something").
@@ -103,6 +114,7 @@ Return ONLY valid JSON (no markdown, no explanation) matching one of these schem
 - "change gym to 6pm" → update_fields: { timeStart: "18:00", timeEnd: "19:00" }.
 - "move Monday gym to Wednesday" → update_filter: { title_keywords: ["gym"], weekdays: [1] }, update_fields: { weekdays: [3] }.
 - "rename work to office" → update_fields: { title: "Office" }.
+- CRITICAL — When a specific single date is targeted for deletion (e.g. "clear this Saturday"), use date: "YYYY-MM-DD" in the filter — do NOT use weekdays. The weekdays filter matches ANY recurring rule that includes that day, which can cause unintended mass deletion.
 
 Today's date is: {{TODAY}}
 
@@ -202,6 +214,8 @@ router.post('/', async (req, res) => {
       allDay: r.allDay ?? r.all_day ?? false,
       timeStart: r.timeStart ?? r.time_start ?? null,
       timeEnd: r.timeEnd ?? r.time_end ?? null,
+      dateFrom: r.dateFrom ?? r.date_from ?? null,
+      dateTo: r.dateTo ?? r.date_to ?? null,
     }));
 
     res.json({

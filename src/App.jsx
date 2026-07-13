@@ -1,6 +1,7 @@
+import { useState, useEffect } from 'react';
 import { useFriendule } from './hooks/useFriendule';
 import { MONTHS, addDays } from './utils/dateUtils';
-import AuthScreen from './components/AuthScreen';
+import LandingPage from './components/LandingPage';
 import Header from './components/Header';
 import FriendSwitcher from './components/FriendSwitcher';
 import PromptBox from './components/PromptBox';
@@ -14,68 +15,150 @@ import ConflictBanner from './components/ConflictBanner';
 import AddFriendModal from './components/AddFriendModal';
 import Toast from './components/Toast';
 import ConfirmDialog from './components/ConfirmDialog';
+import ClarificationModal from './components/ClarificationModal';
+import { SegmentedControl, IconButton, Button } from './components/ds.jsx';
 
 export default function App() {
   const state = useFriendule();
 
+  const [darkMode, setDarkMode] = useState(() => {
+    try { return localStorage.getItem('friendule-theme') === 'dark'; } catch { return false; }
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    try { localStorage.setItem('friendule-theme', darkMode ? 'dark' : 'light'); } catch { /* ignore */ }
+  }, [darkMode]);
+
   if (!state.auth) {
     return (
-      <AuthScreen
+      <LandingPage
         authMode={state.authMode}
         authFields={state.authFields}
         authError={state.authError}
         setAuthMode={state.setAuthMode}
         setAuthFields={state.setAuthFields}
         submitAuth={state.submitAuth}
+        darkMode={darkMode}
+        toggleDark={() => setDarkMode(d => !d)}
       />
     );
   }
 
   if (state.loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF6F0' }}>
-        <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '17px', color: '#9A8E83' }}>Loading&#8230;</div>
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--bg-canvas)',
+      }}>
+        <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-body)', color: 'var(--text-tertiary)' }}>
+          Loading&#8230;
+        </div>
       </div>
     );
   }
 
   const { cur, view, tab } = state;
   const isMonth = view === 'month';
-  const isWeek = view === 'week';
+  const isWeek  = view === 'week';
 
-  const segOn = { background: '#fff', color: '#3A322C', border: 'none', borderRadius: '999px', padding: '7px 16px', fontWeight: 800, fontSize: '13px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(80,55,30,.16)' };
-  const segOff = { background: 'transparent', color: '#8C7E70', border: 'none', borderRadius: '999px', padding: '7px 16px', fontWeight: 800, fontSize: '13px', cursor: 'pointer' };
-
-  // Period label
   const monthLabel = MONTHS[cur.getMonth()] + ' ' + cur.getFullYear();
   let periodLabel = monthLabel;
   if (isWeek && (tab === 'friends' || tab === 'personal')) {
     const ws = addDays(cur, -cur.getDay());
     const we = addDays(ws, 6);
-    periodLabel = MONTHS[ws.getMonth()] + ' ' + ws.getDate() + ' – ' + (ws.getMonth() !== we.getMonth() ? MONTHS[we.getMonth()] + ' ' : '') + we.getDate();
+    periodLabel = MONTHS[ws.getMonth()] + ' ' + ws.getDate()
+      + ' – '
+      + (ws.getMonth() !== we.getMonth() ? MONTHS[we.getMonth()] + ' ' : '')
+      + we.getDate();
   }
 
-  return (
-    <div style={{ minHeight: '100vh', width: '100%', backgroundColor: '#FBF6F0', backgroundImage: 'radial-gradient(900px 520px at 6% -12%, oklch(0.87 0.075 70 / .55), transparent 60%),radial-gradient(820px 520px at 100% -4%, oklch(0.85 0.085 28 / .42), transparent 56%),radial-gradient(760px 620px at 92% 112%, oklch(0.86 0.06 255 / .38), transparent 56%),radial-gradient(circle, oklch(0.5 0.03 60 / .055) 1.1px, transparent 1.1px)', backgroundSize: 'auto,auto,auto,24px 24px', backgroundAttachment: 'fixed' }}>
-      <div style={{ maxWidth: '1140px', margin: '0 auto', padding: 'clamp(16px,3vw,34px)' }}>
-        <Header tab={tab} goFriends={state.goFriends} goEveryone={state.goEveryone} goPersonal={state.goPersonal} auth={state.auth} logout={state.logout} />
+  const calendarControls = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '18px 0 12px' }}>
+      <SegmentedControl
+        options={['month', 'week']}
+        value={view}
+        onChange={v => { if (v === 'month') state.setMonthView(); else state.setWeekView(); }}
+        size="sm"
+      />
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <IconButton shape="circle" size="sm" onClick={state.prevPeriod} aria-label="Previous period">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </IconButton>
+        <div style={{
+          fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-semibold)',
+          fontSize: 'var(--fs-body)', minWidth: '150px', textAlign: 'center',
+          color: 'var(--text-primary)',
+        }}>{periodLabel}</div>
+        <IconButton shape="circle" size="sm" onClick={state.nextPeriod} aria-label="Next period">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </IconButton>
+        <button
+          onClick={state.goToday}
+          style={{
+            border: '1px solid var(--border-strong)', background: 'var(--surface-card)',
+            color: 'var(--text-secondary)', borderRadius: 'var(--radius-pill)',
+            padding: '6px 13px', fontFamily: 'var(--font-sans)',
+            fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-sm)', cursor: 'pointer',
+            marginLeft: '2px',
+            transition: 'background var(--dur-fast) var(--ease-out)',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-card)'}
+        >Today</button>
+      </div>
+
+      <Button variant="ink" size="sm" onClick={state.addBlank}>+ Add event</Button>
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: '100vh', width: '100%', background: 'var(--bg-canvas)' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'clamp(14px,2.5vw,32px)' }}>
+
+        <Header
+          tab={tab}
+          goFriends={state.goFriends}
+          goEveryone={state.goEveryone}
+          goPersonal={state.goPersonal}
+          auth={state.auth}
+          logout={state.logout}
+          darkMode={darkMode}
+          toggleDark={() => setDarkMode(d => !d)}
+        />
+
+        {/* ── MY CALENDAR ── */}
         {tab === 'personal' && (
           <div style={{ animation: 'flin .25s ease both' }}>
             {!state.personalFriend ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh' }}>
-                <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '17px', color: '#9A8E83' }}>Setting up your calendar…</div>
+                <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-body)', color: 'var(--text-tertiary)' }}>
+                  Setting up your calendar\u2026
+                </div>
               </div>
             ) : (
               <>
-                {/* Personal header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px', padding: '16px 18px', background: '#fff', borderRadius: '20px', border: '1px solid #EFE7DD' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '999px', background: state.personalFriend.colorset.solid, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '20px', fontFamily: "'Quicksand',sans-serif", flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,.15)' }}>
+                {/* Personal header card */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px',
+                  padding: '14px 18px',
+                  background: 'var(--surface-card)',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--border-subtle)',
+                  boxShadow: 'var(--shadow-xs)',
+                }}>
+                  <div style={{
+                    width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
+                    background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontWeight: 'var(--fw-bold)', fontSize: '18px', fontFamily: 'var(--font-sans)',
+                    boxShadow: 'var(--shadow-sm)',
+                  }}>
                     {state.auth.email[0].toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 800, fontSize: '20px', color: '#3A322C' }}>My Calendar</div>
-                    <div style={{ fontSize: '13px', color: '#9A8E83', fontWeight: 600, marginTop: '2px' }}>Your personal schedule</div>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-title)', color: 'var(--text-primary)' }}>My Calendar</div>
+                    <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginTop: '1px' }}>Your personal schedule</div>
                   </div>
                 </div>
 
@@ -85,25 +168,10 @@ export default function App() {
                   setPrompt={state.setPrompt}
                   commitPrompt={state.commitPrompt}
                   parsing={state.parsing}
-                  clarification={state.clarification}
-                  setClarification={state.setClarification}
                   transcribe={state.transcribe}
                 />
 
-                {/* Controls */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '18px 2px 12px' }}>
-                  <div style={{ display: 'flex', background: '#fff', border: '1px solid #EFE7DD', borderRadius: '999px', padding: '4px' }}>
-                    <button style={isMonth ? segOn : segOff} onClick={state.setMonthView}>Month</button>
-                    <button style={isWeek ? segOn : segOff} onClick={state.setWeekView}>Week</button>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button style={{ width: '36px', height: '36px', borderRadius: '999px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }} onClick={state.prevPeriod}>&lsaquo;</button>
-                    <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '17px', minWidth: '150px', textAlign: 'center' }}>{periodLabel}</div>
-                    <button style={{ width: '36px', height: '36px', borderRadius: '999px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }} onClick={state.nextPeriod}>&rsaquo;</button>
-                    <button style={{ marginLeft: '4px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', borderRadius: '999px', padding: '8px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }} onClick={state.goToday}>Today</button>
-                  </div>
-                  <button style={{ border: 'none', background: '#3A322C', color: '#fff', borderRadius: '999px', padding: '9px 16px', fontWeight: 800, fontSize: '13.5px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={state.addBlank}>+ Add event</button>
-                </div>
+                {calendarControls}
 
                 {isMonth && (
                   <MonthGrid cur={cur} friend={state.personalFriend} instances={(_, date) => state.personalInstances(date)} openFriendDay={state.openFriendDay} openEdit={state.openEdit} />
@@ -116,13 +184,19 @@ export default function App() {
           </div>
         )}
 
+        {/* ── PER FRIEND ── */}
         {tab === 'friends' && (
           <div style={{ animation: 'flin .25s ease both' }}>
             {!state.friend ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px' }}>
-                <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '22px', color: '#3A322C' }}>Welcome to Friendule!</div>
-                <div style={{ fontSize: '15px', color: '#9A8E83', fontWeight: 600 }}>Add a friend to get started.</div>
-                <button style={{ border: 'none', background: '#3A322C', color: '#fff', borderRadius: '999px', padding: '12px 24px', fontWeight: 800, fontSize: '14px', cursor: 'pointer' }} onClick={state.openAddFriend}>+ Add your first friend</button>
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', minHeight: '60vh', gap: '16px',
+              }}>
+                <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-h3)', color: 'var(--text-primary)' }}>
+                  Welcome to Friendule!
+                </div>
+                <div style={{ fontSize: 'var(--fs-body)', color: 'var(--text-secondary)' }}>Add a friend to get started.</div>
+                <Button variant="ink" onClick={state.openAddFriend}>+ Add your first friend</Button>
               </div>
             ) : (
               <>
@@ -145,25 +219,10 @@ export default function App() {
                   setPrompt={state.setPrompt}
                   commitPrompt={state.commitPrompt}
                   parsing={state.parsing}
-                  clarification={state.clarification}
-                  setClarification={state.setClarification}
                   transcribe={state.transcribe}
                 />
 
-                {/* Controls */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', margin: '18px 2px 12px' }}>
-                  <div style={{ display: 'flex', background: '#fff', border: '1px solid #EFE7DD', borderRadius: '999px', padding: '4px' }}>
-                    <button style={isMonth ? segOn : segOff} onClick={state.setMonthView}>Month</button>
-                    <button style={isWeek ? segOn : segOff} onClick={state.setWeekView}>Week</button>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button style={{ width: '36px', height: '36px', borderRadius: '999px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }} onClick={state.prevPeriod}>&lsaquo;</button>
-                    <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '17px', minWidth: '150px', textAlign: 'center' }}>{periodLabel}</div>
-                    <button style={{ width: '36px', height: '36px', borderRadius: '999px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }} onClick={state.nextPeriod}>&rsaquo;</button>
-                    <button style={{ marginLeft: '4px', border: '1px solid #EFE7DD', background: '#fff', color: '#6B5E52', borderRadius: '999px', padding: '8px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }} onClick={state.goToday}>Today</button>
-                  </div>
-                  <button style={{ border: 'none', background: '#3A322C', color: '#fff', borderRadius: '999px', padding: '9px 16px', fontWeight: 800, fontSize: '13.5px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={state.addBlank}>+ Add event</button>
-                </div>
+                {calendarControls}
 
                 {isMonth && (
                   <MonthGrid cur={cur} friend={state.friend} instances={state.instances} openFriendDay={state.openFriendDay} openEdit={state.openEdit} />
@@ -176,6 +235,7 @@ export default function App() {
           </div>
         )}
 
+        {/* ── EVERYONE ── */}
         {tab === 'everyone' && (
           <EveryoneView
             cur={cur}
@@ -190,14 +250,21 @@ export default function App() {
             openDay={state.openDay}
           />
         )}
+
       </div>
 
-      <EventEditor editor={state.editor} patchEd={state.patchEd} toggleWd={state.toggleWd} closeEditor={state.closeEditor} saveEvent={state.saveEvent} deleteEvent={state.deleteEvent} />
-      <FriendDayPanel friendDay={state.friendDay} friend={state.effectiveFriend} openEdit={state.openEdit} openNew={state.openNew} closeFriendDay={state.closeFriendDay} />
-      <DayDetail dayDetail={state.dayDetail} closeDay={state.closeDay} />
-      <AddFriendModal addFriendModal={state.addFriendModal} patchAf={state.patchAf} closeAddFriend={state.closeAddFriend} saveNewFriend={state.saveNewFriend} />
-      <ConfirmDialog confirmDialog={state.confirmDialog} />
-      <Toast message={state.toast} />
+      {/* Overlays */}
+      <EventEditor      editor={state.editor}       patchEd={state.patchEd}         toggleWd={state.toggleWd}         closeEditor={state.closeEditor}       saveEvent={state.saveEvent}   deleteEvent={state.deleteEvent} />
+      <FriendDayPanel   friendDay={state.friendDay}  friend={state.effectiveFriend}  openEdit={state.openEdit}         openNew={state.openNew}               closeFriendDay={state.closeFriendDay} />
+      <DayDetail        dayDetail={state.dayDetail}  closeDay={state.closeDay} />
+      <AddFriendModal   addFriendModal={state.addFriendModal} patchAf={state.patchAf} closeAddFriend={state.closeAddFriend} saveNewFriend={state.saveNewFriend} />
+      <ClarificationModal
+        clarification={state.clarification}
+        onConfirm={state.confirmClarification}
+        onCancel={state.dismissClarification}
+      />
+      <ConfirmDialog    confirmDialog={state.confirmDialog} />
+      <Toast            message={state.toast} />
     </div>
   );
 }

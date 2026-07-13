@@ -1,4 +1,11 @@
 import { prettyDate, fmtTime } from '../utils/dateUtils';
+import { Badge } from './ds.jsx';
+
+function statusTone(status) {
+  if (status === 'busy') return 'danger';
+  if (status === 'together') return 'together';
+  return 'success';
+}
 
 export default function DayDetail({ dayDetail, closeDay }) {
   if (!dayDetail) return null;
@@ -6,41 +13,95 @@ export default function DayDetail({ dayDetail, closeDay }) {
   const freeN = dayDetail.rows.filter(r => !r.busy).length;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(58,42,28,.34)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px', zIndex: 50, animation: 'ovin .2s ease both' }} onClick={closeDay}>
-      <div style={{ width: '420px', maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', background: '#fff', borderRadius: '24px', padding: '22px', boxShadow: '0 24px 60px rgba(58,42,28,.28)', animation: 'pop .24s cubic-bezier(.2,.8,.3,1) both' }} onClick={e => e.stopPropagation()}>
+    <div
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(16,16,25,.55)',
+        backdropFilter: 'blur(3px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '18px', zIndex: 50,
+        animation: 'ovin .2s ease both',
+      }}
+      onClick={closeDay}
+    >
+      <div
+        style={{
+          width: '420px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto',
+          background: 'var(--surface-card)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '22px',
+          boxShadow: 'var(--shadow-lg)',
+          border: '1px solid var(--border-subtle)',
+          animation: 'pop .24s cubic-bezier(.2,.8,.3,1) both',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <div style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 700, fontSize: '19px' }}>{prettyDate(dayDetail.ymd)}</div>
-          <button style={{ width: '34px', height: '34px', borderRadius: '999px', border: 'none', background: '#F3ECE2', color: '#6B5E52', fontSize: '18px', cursor: 'pointer', fontWeight: 700 }} onClick={closeDay}>✕</button>
+          <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-title)', color: 'var(--text-primary)' }}>
+            {prettyDate(dayDetail.ymd)}
+          </div>
+          <button
+            style={{
+              width: '34px', height: '34px', borderRadius: 'var(--radius-pill)',
+              border: 'none', background: 'var(--surface-inset)',
+              color: 'var(--text-secondary)', fontSize: '18px', cursor: 'pointer',
+            }}
+            onClick={closeDay}
+          >&#10005;</button>
         </div>
-        <div style={{ fontSize: '13px', color: '#9A8E83', fontWeight: 600, marginBottom: '14px' }}>{freeN} of {dayDetail.rows.length} friends look free</div>
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          {freeN} of {dayDetail.rows.length} friends look free
+        </div>
+
+        {/* Friend rows */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {dayDetail.rows.map(row => {
             const cs = row.f.colorset;
             return (
-              <div key={row.f.id} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', border: '1px solid #F1EAE0', borderRadius: '16px', padding: '12px 13px' }}>
-                <div style={{ flex: '0 0 auto', width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: cs.tint, color: cs.deep, border: '1.5px solid ' + cs.tintBorder, fontWeight: 800, fontSize: '14px', fontFamily: "'Quicksand',sans-serif" }}>{row.f.initials}</div>
+              <div key={row.f.id} style={{
+                display: 'flex', gap: '12px', alignItems: 'flex-start',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)', padding: '12px 13px',
+              }}>
+                {/* Avatar using friend colorset */}
+                <div style={{
+                  flex: '0 0 auto', width: '40px', height: '40px',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: cs.tint, color: cs.deep,
+                  border: '1.5px solid ' + cs.tintBorder,
+                  fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-sm)',
+                }}>
+                  {row.f.initials}
+                </div>
+
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontWeight: 800, fontSize: '15px' }}>{row.f.name}</span>
-                    <span style={row.busy
-                      ? { fontSize: '11px', fontWeight: 800, color: '#C0563E', background: '#FBEDE7', padding: '1px 8px', borderRadius: '999px' }
-                      : row.together
-                      ? { fontSize: '11px', fontWeight: 800, color: '#A0357A', background: '#FDE8F5', padding: '1px 8px', borderRadius: '999px' }
-                      : { fontSize: '11px', fontWeight: 800, color: '#2A7A50', background: '#E6F4ED', padding: '1px 8px', borderRadius: '999px' }
-                    }>{row.busy ? 'Busy' : row.together ? 'Together' : 'Free'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>
+                      {row.f.name}
+                    </span>
+                    <Badge tone={row.busy ? 'danger' : row.together ? 'together' : 'success'}>
+                      {row.busy ? 'Busy' : row.together ? 'Together' : 'Free'}
+                    </Badge>
                   </div>
-                  <div style={{ marginTop: '5px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+
+                  <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                     {row.evs.map(e => (
                       <div key={e.id} style={{
-                        fontSize: '12.5px', fontWeight: 700,
-                        color: e.status === 'busy' ? '#7A6B5D' : e.status === 'together' ? '#A0357A' : '#2A7A50',
-                        background: e.status === 'busy' ? '#F6EFE6' : e.status === 'together' ? '#FDE8F5' : '#E6F4ED',
-                        borderRadius: '7px', padding: '2px 8px', display: 'inline-block', width: 'fit-content'
+                        fontSize: 'var(--fs-xs)', fontWeight: 'var(--fw-medium)',
+                        color: e.status === 'busy' ? 'var(--cat-rose-ink)' : e.status === 'together' ? 'var(--cat-violet-ink)' : 'var(--cat-mint-ink)',
+                        background: e.status === 'busy' ? 'var(--cat-rose-fill)' : e.status === 'together' ? 'var(--cat-violet-fill)' : 'var(--cat-mint-fill)',
+                        borderRadius: 'var(--radius-xs)', padding: '2px 8px', display: 'inline-block', width: 'fit-content',
                       }}>
                         {(e.allDay ? 'All day' : fmtTime(e.startMin) + '–' + fmtTime(e.endMin)) + ' · ' + e.title}
                       </div>
                     ))}
-                    {row.evs.length === 0 && <div style={{ fontSize: '13px', color: '#5BA06B', fontWeight: 700 }}>Wide open — ping them!</div>}
+                    {row.evs.length === 0 && (
+                      <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--success)', fontWeight: 'var(--fw-medium)' }}>
+                        Wide open — ping them!
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

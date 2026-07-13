@@ -1,4 +1,6 @@
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+import { Badge, Button } from './ds.jsx';
+
+const DAY_NAMES      = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function fmt12(hhmm) {
@@ -9,56 +11,53 @@ function fmt12(hhmm) {
   return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, '0')}${period}`;
 }
 
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T12:00:00');
+  return DAY_NAMES_FULL[d.getDay()].slice(0, 3) + ' ' + (d.getMonth() + 1) + '/' + d.getDate();
+}
+
 function describeSchedule(rule) {
   const parts = [];
   if (rule.recurrence === 'weekly' && rule.weekdays?.length) {
     parts.push(rule.weekdays.map(d => DAY_NAMES[d]).join(', '));
   } else if (rule.recurrence === 'once' && rule.date) {
-    // e.g. "Wed Jul 2"
     const d = new Date(rule.date + 'T12:00:00');
     parts.push(DAY_NAMES_FULL[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate());
   } else if (rule.recurrence === 'daily') {
     parts.push('Every day');
   }
-  if (rule.allDay) {
-    parts.push('All day');
-  } else if (rule.timeStart && rule.timeEnd) {
-    parts.push(`${fmt12(rule.timeStart)} – ${fmt12(rule.timeEnd)}`);
+  if (rule.allDay) parts.push('All day');
+  else if (rule.timeStart && rule.timeEnd) parts.push(`${fmt12(rule.timeStart)} – ${fmt12(rule.timeEnd)}`);
+  if (rule.recurrence !== 'once') {
+    if (rule.dateFrom && rule.dateTo) parts.push(`${fmtDate(rule.dateFrom)} – ${fmtDate(rule.dateTo)}`);
+    else if (rule.dateFrom) parts.push(`from ${fmtDate(rule.dateFrom)}`);
+    else if (rule.dateTo)   parts.push(`until ${fmtDate(rule.dateTo)}`);
   }
   return parts.join(' · ') || '—';
 }
 
-const STATUS_STYLE = {
-  busy:     { bg: '#FDEEE9', color: '#A64020', label: 'Busy' },
-  free:     { bg: '#E6F4EE', color: '#2A7A50', label: 'Free' },
-  together: { bg: '#E8EEFF', color: '#3040A0', label: 'Together' },
-};
-
-function StatusPill({ status }) {
-  const s = STATUS_STYLE[status] || STATUS_STYLE.busy;
-  return (
-    <span style={{
-      background: s.bg, color: s.color, borderRadius: '999px',
-      padding: '2px 9px', fontSize: '11px', fontWeight: 800, letterSpacing: '.2px',
-    }}>
-      {s.label}
-    </span>
-  );
+function statusTone(status) {
+  if (status === 'busy') return 'danger';
+  if (status === 'free') return 'success';
+  return 'together';
 }
 
 function RuleCard({ rule, highlight }) {
   return (
     <div style={{
-      background: highlight ? '#FFF8EE' : '#F8F3EE',
-      border: `1px solid ${highlight ? '#F0D9A0' : '#EDE3D8'}`,
-      borderRadius: '12px', padding: '10px 14px',
+      background: highlight ? 'var(--accent-wash)' : 'var(--surface-sunken)',
+      border: `1px solid ${highlight ? 'var(--border-brand)' : 'var(--border-subtle)'}`,
+      borderRadius: 'var(--radius-md)', padding: '10px 14px',
       display: 'flex', flexDirection: 'column', gap: '5px', flex: '1 1 0',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 800, fontSize: '14px', color: '#3A322C' }}>{rule.title}</span>
-        <StatusPill status={rule.status} />
+        <span style={{ fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-body)', color: 'var(--text-primary)' }}>
+          {rule.title}
+        </span>
+        <Badge tone={statusTone(rule.status)}>{rule.status}</Badge>
       </div>
-      <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#7A6E64' }}>
+      <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)' }}>
         {describeSchedule(rule)}
       </div>
     </div>
@@ -68,14 +67,14 @@ function RuleCard({ rule, highlight }) {
 function applyFields(rule, fields) {
   return {
     ...rule,
-    title:     fields.title     ?? rule.title,
-    status:    fields.status    ?? rule.status,
-    allDay:    fields.allDay    ?? rule.allDay,
-    timeStart: (fields.allDay ?? rule.allDay) ? null : (fields.timeStart ?? rule.timeStart),
-    timeEnd:   (fields.allDay ?? rule.allDay) ? null : (fields.timeEnd   ?? rule.timeEnd),
+    title:      fields.title      ?? rule.title,
+    status:     fields.status     ?? rule.status,
+    allDay:     fields.allDay     ?? rule.allDay,
+    timeStart:  (fields.allDay ?? rule.allDay) ? null : (fields.timeStart ?? rule.timeStart),
+    timeEnd:    (fields.allDay ?? rule.allDay) ? null : (fields.timeEnd   ?? rule.timeEnd),
     recurrence: fields.recurrence ?? rule.recurrence,
-    weekdays:  fields.weekdays  ?? rule.weekdays,
-    date:      fields.date      ?? rule.date,
+    weekdays:   fields.weekdays   ?? rule.weekdays,
+    date:       fields.date       ?? rule.date,
   };
 }
 
@@ -84,12 +83,14 @@ function UpdateRow({ rule, updateFields }) {
   return (
     <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
       <div style={{ flex: '1 1 0' }}>
-        <div style={{ fontSize: '10px', fontWeight: 800, color: '#B6A99C', textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: '5px' }}>Before</div>
+        <div style={{ fontSize: 'var(--fs-2xs)', fontWeight: 'var(--fw-bold)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 'var(--ls-caps)', marginBottom: '5px' }}>Before</div>
         <RuleCard rule={rule} highlight={false} />
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', fontSize: '18px', color: '#C0A888', paddingTop: '20px' }}>&#8594;</div>
+      <div style={{ display: 'flex', alignItems: 'center', fontSize: '18px', color: 'var(--text-tertiary)', paddingTop: '20px' }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </div>
       <div style={{ flex: '1 1 0' }}>
-        <div style={{ fontSize: '10px', fontWeight: 800, color: '#B6A99C', textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: '5px' }}>After</div>
+        <div style={{ fontSize: 'var(--fs-2xs)', fontWeight: 'var(--fw-bold)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 'var(--ls-caps)', marginBottom: '5px' }}>After</div>
         <RuleCard rule={after} highlight={true} />
       </div>
     </div>
@@ -101,7 +102,7 @@ export default function ConfirmDialog({ confirmDialog }) {
 
   const { intent, affectedRules, updateFields, onConfirm, onCancel } = confirmDialog;
   const isDelete = intent === 'delete';
-  const count = affectedRules.length;
+  const count    = affectedRules.length;
 
   return (
     <div
@@ -109,43 +110,43 @@ export default function ConfirmDialog({ confirmDialog }) {
       aria-modal="true"
       style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(30,20,10,.48)',
-        backdropFilter: 'blur(5px)',
+        background: 'rgba(16,16,25,.6)',
+        backdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 10000, padding: '20px',
       }}
       onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div style={{
-        background: '#FFFCF9', borderRadius: '22px', padding: '26px 26px 20px',
+        background: 'var(--surface-card)',
+        borderRadius: 'var(--radius-xl)', padding: '26px 26px 20px',
         maxWidth: '600px', width: '100%',
-        boxShadow: '0 28px 70px rgba(80,45,15,.26)',
-        border: '1px solid #EDE0D0',
-        display: 'flex', flexDirection: 'column', gap: '0',
+        boxShadow: 'var(--shadow-lg)',
+        border: '1px solid var(--border-subtle)',
+        display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
-        <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '9px' }}>
-          <span style={{ fontSize: '20px', lineHeight: 1 }}>{isDelete ? '⚠' : '✎'}</span>
-          <span style={{ fontFamily: "'Quicksand',sans-serif", fontWeight: 800, fontSize: '17px', color: '#3A322C' }}>
+        <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {isDelete
+            ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+            : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          }
+          <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-title)', color: 'var(--text-primary)' }}>
             {isDelete ? 'Confirm deletion' : 'Confirm changes'}
           </span>
         </div>
-        <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#9A8E83', marginBottom: '18px' }}>
+        <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginBottom: '18px' }}>
           {isDelete
             ? `${count} rule${count > 1 ? 's' : ''} will be permanently removed.`
             : `${count} rule${count > 1 ? 's' : ''} will be updated. Review the changes below.`}
         </div>
 
         {/* Rule list */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', gap: '10px',
-          maxHeight: '340px', overflowY: 'auto',
-          paddingRight: '2px',
-        }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '340px', overflowY: 'auto', paddingRight: '2px' }}>
           {affectedRules.map(rule => (
             isDelete ? (
               <div key={rule.id} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <span style={{ color: '#C04040', fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>✕</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 <RuleCard rule={rule} highlight={false} />
               </div>
             ) : (
@@ -156,27 +157,10 @@ export default function ConfirmDialog({ confirmDialog }) {
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
-          <button
-            onClick={onCancel}
-            style={{
-              border: '1px solid #EDE3D8', background: '#fff', color: '#6B5E52',
-              borderRadius: '12px', padding: '10px 20px', fontWeight: 700, fontSize: '14px',
-              cursor: 'pointer',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            style={{
-              border: 'none',
-              background: isDelete ? '#C04040' : '#E07A53',
-              color: '#fff', borderRadius: '12px', padding: '10px 22px',
-              fontWeight: 800, fontSize: '14px', cursor: 'pointer',
-            }}
-          >
-            {isDelete ? `Delete ${count > 1 ? count + ' rules' : 'rule'}` : `Apply changes`}
-          </button>
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button variant={isDelete ? 'danger' : 'primary'} onClick={onConfirm}>
+            {isDelete ? `Delete ${count > 1 ? count + ' rules' : 'rule'}` : 'Apply changes'}
+          </Button>
         </div>
       </div>
     </div>
