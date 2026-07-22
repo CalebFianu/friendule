@@ -97,12 +97,49 @@ function UpdateRow({ rule, updateFields }) {
   );
 }
 
+function RevertIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="1 4 1 10 7 10"/>
+      <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+    </svg>
+  );
+}
+
 export default function ConfirmDialog({ confirmDialog }) {
   if (!confirmDialog) return null;
 
-  const { intent, affectedRules, updateFields, onConfirm, onCancel } = confirmDialog;
+  const { intent, affectedRules, updateFields, revertType, onConfirm, onCancel } = confirmDialog;
   const isDelete = intent === 'delete';
+  const isRevert = intent === 'revert';
   const count    = affectedRules.length;
+
+  let title, subtitle, confirmLabel, confirmVariant;
+  if (isDelete) {
+    title         = 'Confirm deletion';
+    subtitle      = `${count} rule${count > 1 ? 's' : ''} will be permanently removed.`;
+    confirmLabel  = `Delete ${count > 1 ? count + ' rules' : 'rule'}`;
+    confirmVariant = 'danger';
+  } else if (isRevert) {
+    const noun = `rule${count > 1 ? 's' : ''}`;
+    if (revertType === 'create') {
+      title    = 'Undo — remove added rules';
+      subtitle = `${count} ${noun} that were just added will be removed.`;
+    } else if (revertType === 'delete') {
+      title    = 'Undo — restore deleted rules';
+      subtitle = `${count} ${noun} that were just removed will be restored.`;
+    } else {
+      title    = 'Undo — revert changes';
+      subtitle = `${count} ${noun} will be reverted to their previous state.`;
+    }
+    confirmLabel   = 'Undo';
+    confirmVariant = 'primary';
+  } else {
+    title         = 'Confirm changes';
+    subtitle      = `${count} rule${count > 1 ? 's' : ''} will be updated. Review the changes below.`;
+    confirmLabel  = 'Apply changes';
+    confirmVariant = 'primary';
+  }
 
   return (
     <div
@@ -129,16 +166,16 @@ export default function ConfirmDialog({ confirmDialog }) {
         <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           {isDelete
             ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+            : isRevert
+            ? <RevertIcon />
             : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           }
           <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-bold)', fontSize: 'var(--fs-title)', color: 'var(--text-primary)' }}>
-            {isDelete ? 'Confirm deletion' : 'Confirm changes'}
+            {title}
           </span>
         </div>
         <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginBottom: '18px' }}>
-          {isDelete
-            ? `${count} rule${count > 1 ? 's' : ''} will be permanently removed.`
-            : `${count} rule${count > 1 ? 's' : ''} will be updated. Review the changes below.`}
+          {subtitle}
         </div>
 
         {/* Rule list */}
@@ -147,6 +184,11 @@ export default function ConfirmDialog({ confirmDialog }) {
             isDelete ? (
               <div key={rule.id} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <RuleCard rule={rule} highlight={false} />
+              </div>
+            ) : isRevert ? (
+              <div key={rule.id || rule.title + rule.recurrence} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <RevertIcon />
                 <RuleCard rule={rule} highlight={false} />
               </div>
             ) : (
@@ -158,8 +200,8 @@ export default function ConfirmDialog({ confirmDialog }) {
         {/* Actions */}
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
           <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-          <Button variant={isDelete ? 'danger' : 'primary'} onClick={onConfirm}>
-            {isDelete ? `Delete ${count > 1 ? count + ' rules' : 'rule'}` : 'Apply changes'}
+          <Button variant={confirmVariant} onClick={onConfirm}>
+            {confirmLabel}
           </Button>
         </div>
       </div>

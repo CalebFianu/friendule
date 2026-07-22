@@ -20,7 +20,16 @@ function MoonIcon() {
   );
 }
 
-export default function Header({ tab, goFriends, goEveryone, goPersonal, auth, logout, darkMode, toggleDark }) {
+function UndoIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="1 4 1 10 7 10"/>
+      <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+    </svg>
+  );
+}
+
+export default function Header({ tab, goFriends, goEveryone, goPersonal, auth, logout, darkMode, toggleDark, lastAction, revertLastAction }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -59,6 +68,30 @@ export default function Header({ tab, goFriends, goEveryone, goPersonal, auth, l
             else goEveryone();
           }}
         />
+
+        {/* Revert button */}
+        <button
+          onClick={revertLastAction}
+          disabled={!lastAction}
+          title={lastAction ? 'Undo last change' : 'Nothing to undo'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '7px 13px',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-pill)',
+            background: lastAction ? 'var(--surface-card)' : 'var(--surface-sunken)',
+            color: lastAction ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+            fontFamily: 'var(--font-sans)', fontWeight: 'var(--fw-semibold)', fontSize: 'var(--fs-sm)',
+            cursor: lastAction ? 'pointer' : 'not-allowed',
+            opacity: lastAction ? 1 : 0.5,
+            transition: 'background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out)',
+          }}
+          onMouseEnter={e => { if (lastAction) e.currentTarget.style.background = 'var(--surface-hover)'; }}
+          onMouseLeave={e => { if (lastAction) e.currentTarget.style.background = 'var(--surface-card)'; }}
+        >
+          <UndoIcon />
+          Revert
+        </button>
 
         {/* Dark mode toggle */}
         <IconButton

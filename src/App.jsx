@@ -126,6 +126,8 @@ export default function App() {
           logout={state.logout}
           darkMode={darkMode}
           toggleDark={() => setDarkMode(d => !d)}
+          lastAction={state.lastAction}
+          revertLastAction={state.revertLastAction}
         />
 
         {/* ── MY CALENDAR ── */}
