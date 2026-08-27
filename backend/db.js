@@ -74,6 +74,12 @@ async function init() {
   await pool.query(`
     ALTER TABLE friends ADD COLUMN IF NOT EXISTS is_self BOOLEAN NOT NULL DEFAULT false;
   `);
+
+  // Migrate: add date_from / date_to for bounded recurring rules
+  await pool.query(`
+    ALTER TABLE rules ADD COLUMN IF NOT EXISTS date_from TEXT;
+    ALTER TABLE rules ADD COLUMN IF NOT EXISTS date_to   TEXT;
+  `);
 }
 
 module.exports = { pool, init };

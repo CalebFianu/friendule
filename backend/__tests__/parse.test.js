@@ -233,6 +233,62 @@ describe('POST /parse — Claude fallback', () => {
 // ---------------------------------------------------------------------------
 
 describe('POST /parse — field normalisation', () => {
+  test('normalises date_from/date_to → dateFrom/dateTo', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse({
+      intent: 'create',
+      rules: [{
+        title: 'Work', status: 'busy', recurrence: 'weekly',
+        weekdays: [1, 2, 3, 4, 5], all_day: false, time_start: '09:00', time_end: '17:00',
+        date_from: '2026-07-14', date_to: '2026-07-31',
+      }],
+      clarification_needed: null,
+    }));
+
+    const res = await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'busy weekdays 9-5 for the rest of July' });
+
+    expect(res.status).toBe(200);
+    // Normalised camelCase fields are present
+    expect(res.body.rules[0].dateFrom).toBe('2026-07-14');
+    expect(res.body.rules[0].dateTo).toBe('2026-07-31');
+  });
+
+  test('normalises camelCase dateFrom/dateTo from LLM unchanged', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse({
+      intent: 'create',
+      rules: [{
+        title: 'Gym', status: 'busy', recurrence: 'weekly',
+        weekdays: [1, 3, 5], all_day: false, time_start: '07:00', time_end: '08:00',
+        dateFrom: '2026-08-01', dateTo: '2026-08-31',
+      }],
+      clarification_needed: null,
+    }));
+
+    const res = await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'gym MWF 7-8am in August' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.rules[0].dateFrom).toBe('2026-08-01');
+    expect(res.body.rules[0].dateTo).toBe('2026-08-31');
+  });
+
+  test('dateFrom/dateTo are null when LLM omits them', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(CREATE_PAYLOAD));
+
+    const res = await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'busy weekdays 9-5' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.rules[0].dateFrom).toBeNull();
+    expect(res.body.rules[0].dateTo).toBeNull();
+  });
+
   test('normalises all_day → allDay and time_start/time_end → timeStart/timeEnd', async () => {
     groqCreate.mockResolvedValueOnce(groqResponse({
       intent: 'create',
@@ -307,6 +363,46 @@ describe('POST /parse — system prompt instructions', () => {
     const systemPrompt = groqCreate.mock.calls[0][0].messages[0].content;
     expect(systemPrompt).toMatch(/clear today/i);
     expect(systemPrompt).toMatch(/do not set recurrence/i);
+  });
+
+  test('system prompt includes CRITICAL instruction: "not free [day]" maps to busy once rule', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(CREATE_PAYLOAD));
+
+    await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'not free Saturday' });
+
+    const systemPrompt = groqCreate.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toMatch(/not free.*busy/i);
+    expect(systemPrompt).toMatch(/do not use delete/i);
+  });
+
+  test('system prompt includes CRITICAL instruction for date-bounded recurring rules', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(CREATE_PAYLOAD));
+
+    await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'busy weekdays for the rest of July' });
+
+    const systemPrompt = groqCreate.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toMatch(/date_from/);
+    expect(systemPrompt).toMatch(/date_to/);
+    expect(systemPrompt).toMatch(/for the rest of/i);
+  });
+
+  test('system prompt includes CRITICAL instruction: use date not weekdays for single-date deletes', async () => {
+    groqCreate.mockResolvedValueOnce(groqResponse(DELETE_PAYLOAD));
+
+    await request(app)
+      .post('/parse')
+      .set(auth())
+      .send({ text: 'clear this Saturday' });
+
+    const systemPrompt = groqCreate.mock.calls[0][0].messages[0].content;
+    expect(systemPrompt).toMatch(/clear this Saturday/i);
+    expect(systemPrompt).toMatch(/do not use weekdays/i);
   });
 
   test('system prompt includes today\'s date', async () => {

@@ -27,6 +27,8 @@ const RULE_ROW = {
   time_end: '17:00',
   date: null,
   weekdays: [1, 2, 3, 4, 5],
+  date_from: null,
+  date_to: null,
   raw_text: 'busy weekdays 9-5',
   created_at: 1000000,
 };
@@ -42,6 +44,8 @@ const ONCE_RULE_ROW = {
   time_end: null,
   date: '2026-08-01',
   weekdays: null,
+  date_from: null,
+  date_to: null,
   raw_text: '',
   created_at: 1000000,
 };
@@ -57,6 +61,8 @@ const TOGETHER_RULE_ROW = {
   time_end: '21:00',
   date: '2026-08-05',
   weekdays: null,
+  date_from: null,
+  date_to: null,
   raw_text: 'dinner together on Aug 5th',
   created_at: 1000000,
 };
@@ -371,6 +377,88 @@ describe('PUT /rules/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('together');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// dateFrom / dateTo — bounded recurring rules
+// ---------------------------------------------------------------------------
+
+describe('dateFrom / dateTo — response shape', () => {
+  test('GET includes dateFrom and dateTo fields (null when unset)', async () => {
+    pool.query.mockResolvedValueOnce({ rows: [RULE_ROW] });
+
+    const res = await request(app).get('/rules').set(auth());
+
+    expect(res.status).toBe(200);
+    expect(res.body.rules[0]).toHaveProperty('dateFrom', null);
+    expect(res.body.rules[0]).toHaveProperty('dateTo', null);
+  });
+
+  test('POST with dateFrom/dateTo stores and returns them', async () => {
+    const boundedRow = {
+      ...RULE_ROW,
+      date_from: '2026-07-14',
+      date_to: '2026-07-31',
+    };
+
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: FRIEND_ID }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [boundedRow] });
+
+    const res = await request(app)
+      .post('/rules')
+      .set(auth())
+      .send({ ...WEEKLY_BODY, dateFrom: '2026-07-14', dateTo: '2026-07-31' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.dateFrom).toBe('2026-07-14');
+    expect(res.body.dateTo).toBe('2026-07-31');
+
+    // Verify the INSERT was called with dateFrom/dateTo values
+    const insertCall = pool.query.mock.calls.find(c => typeof c[0] === 'string' && c[0].includes('INSERT'));
+    expect(insertCall[1]).toContain('2026-07-14');
+    expect(insertCall[1]).toContain('2026-07-31');
+  });
+
+  test('PUT can update dateFrom and dateTo on an existing rule', async () => {
+    const updatedRow = {
+      ...RULE_ROW,
+      date_from: '2026-08-01',
+      date_to: '2026-08-31',
+    };
+
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: RULE_ID }] })
+      .mockResolvedValueOnce({ rows: [{ id: FRIEND_ID }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [updatedRow] });
+
+    const res = await request(app)
+      .put(`/rules/${RULE_ID}`)
+      .set(auth())
+      .send({ ...WEEKLY_BODY, dateFrom: '2026-08-01', dateTo: '2026-08-31' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.dateFrom).toBe('2026-08-01');
+    expect(res.body.dateTo).toBe('2026-08-31');
+  });
+
+  test('POST without dateFrom/dateTo returns both as null', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ id: FRIEND_ID }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [RULE_ROW] });
+
+    const res = await request(app)
+      .post('/rules')
+      .set(auth())
+      .send(WEEKLY_BODY);
+
+    expect(res.status).toBe(201);
+    expect(res.body.dateFrom).toBeNull();
+    expect(res.body.dateTo).toBeNull();
   });
 });
 

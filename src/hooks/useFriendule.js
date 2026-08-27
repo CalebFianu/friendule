@@ -75,6 +75,7 @@ export function useFriendule() {
   const [parsing, setParsing] = useState(false);
   const [clarification, setClarification] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [lastAction, setLastAction] = useState(null);
   const toastTimer = useRef(null);
 
   const flash = useCallback((msg) => {
@@ -230,16 +231,25 @@ export function useFriendule() {
 
     if (filter.status && filter.status !== 'any' && rule.status !== filter.status) return false;
 
-    // When a specific date is given, check whether the rule fires on that date
-    // regardless of recurrence type — skip the recurrence filter in this branch.
+    // When a specific date is given, only target rules that fire on exactly that date.
+    // For recurring rules (weekly/daily), only match if a title_keywords or status
+    // filter is also present — otherwise a plain date delete would wipe unrelated
+    // recurring rules (e.g. deleting "this Saturday" should not also remove a
+    // "Free weekends" rule that covers Sunday).
     if (filter.date) {
+      const hasNarrowingFilter =
+        (filter.title_keywords && filter.title_keywords.length > 0) ||
+        (filter.status && filter.status !== 'any');
+
       if (rule.recurrence === 'once') {
         if (rule.date !== filter.date) return false;
       } else if (rule.recurrence === 'weekly') {
+        if (!hasNarrowingFilter) return false; // won't touch recurring rules without a more specific filter
         const wd = parseYmd(filter.date).getDay();
         if (!rule.weekdays?.includes(wd)) return false;
       } else if (rule.recurrence === 'daily') {
-        // daily rules fire every day — always a match
+        if (!hasNarrowingFilter) return false;
+        // daily rules fire every day — match if filter is narrow enough
       } else {
         return false;
       }
@@ -272,8 +282,8 @@ export function useFriendule() {
   }
 
   // Prompt / LLM parse → persist rules to backend
-  const commitPrompt = async () => {
-    const text = prompt.trim();
+  const commitPrompt = async (overrideText) => {
+    const text = (overrideText ?? prompt).trim();
     if (!text) { flash('Type a schedule description first'); return; }
     if (!effectiveFriend) { flash(tab === 'personal' ? 'Your calendar is loading…' : 'Add a friend first'); return; }
 
@@ -301,7 +311,7 @@ export function useFriendule() {
       });
 
       if (data.clarification_needed) {
-        setClarification(data.clarification_needed);
+        setClarification({ question: data.clarification_needed, originalPrompt: text });
         return;
       }
 
@@ -324,6 +334,7 @@ export function useFriendule() {
                 await apiFetch('/rules/' + rule.id, { method: 'DELETE' });
                 setRules(prev => prev.filter(r => r.id !== rule.id));
               }
+              setLastAction({ type: 'delete', deleted: toDelete });
               setPrompt('');
               flash('Removed ' + toDelete.length + ' rule' + (toDelete.length > 1 ? 's' : ''));
             } catch (err) {
@@ -342,6 +353,7 @@ export function useFriendule() {
           flash('No matching rules found to update');
           return;
         }
+        const beforeStates = toUpdate.map(r => ({ id: r.id, before: { ...r } }));
         setConfirmDialog({
           intent: 'update',
           affectedRules: toUpdate,
@@ -365,6 +377,7 @@ export function useFriendule() {
                 const updated = await apiFetch('/rules/' + rule.id, { method: 'PUT', body: JSON.stringify(body) });
                 setRules(prev => prev.map(r => r.id === rule.id ? updated : r));
               }
+              setLastAction({ type: 'update', changes: beforeStates });
               setPrompt('');
               flash('Updated ' + toUpdate.length + ' rule' + (toUpdate.length > 1 ? 's' : ''));
             } catch (err) {
@@ -401,6 +414,7 @@ export function useFriendule() {
       if (saved.length === 0) {
         flash('All parsed rules conflicted with existing schedule — none added');
       } else {
+        setLastAction({ type: 'create', created: saved });
         flash('Added ' + saved.length + ' rule' + (saved.length > 1 ? 's' : '') + ' for ' + forLabel + (skipped ? ' (' + skipped + ' conflict' + (skipped > 1 ? 's' : '') + ' skipped)' : ''));
       }
     } catch (err) {
@@ -420,6 +434,7 @@ export function useFriendule() {
       start: hhmm(startMin != null ? startMin : 720),
       end: hhmm((startMin != null ? startMin : 720) + 60),
       repeat: 'once', date: y, weekdays: [wd],
+      dateFrom: '', dateTo: '',
     });
   };
   const addBlank = () => openNew(cursor, 720);
@@ -435,6 +450,8 @@ export function useFriendule() {
         repeat: rule.recurrence === 'weekly' ? 'weekly' : rule.recurrence === 'daily' ? 'daily' : 'once',
         date: rule.date || cursor,
         weekdays: rule.weekdays ? [...rule.weekdays] : [parseYmd(rule.date || cursor).getDay()],
+        dateFrom: rule.dateFrom || '',
+        dateTo: rule.dateTo || '',
       });
     }
   };
@@ -468,6 +485,8 @@ export function useFriendule() {
         ? (editor.weekdays.length ? [...editor.weekdays].sort((a, b) => a - b) : [parseYmd(editor.date).getDay()])
         : undefined,
       date: recurrence === 'once' ? editor.date : undefined,
+      dateFrom: recurrence !== 'once' && editor.dateFrom ? editor.dateFrom : null,
+      dateTo:   recurrence !== 'once' && editor.dateTo   ? editor.dateTo   : null,
       rawText: '',
     };
 
@@ -478,12 +497,15 @@ export function useFriendule() {
 
     try {
       if (editor.mode === 'edit') {
+        const beforeRule = rules.find(r => r.id === editor.id);
         const updated = await apiFetch('/rules/' + editor.id, { method: 'PUT', body: JSON.stringify(body) });
         setRules(prev => prev.map(r => r.id === editor.id ? updated : r));
+        setLastAction({ type: 'update', changes: [{ id: editor.id, before: beforeRule }] });
         flash('Updated');
       } else {
         const created = await apiFetch('/rules', { method: 'POST', body: JSON.stringify(body) });
         setRules(prev => [...prev, created]);
+        setLastAction({ type: 'create', created: [created] });
         flash('Rule added');
       }
       setEditor(null);
@@ -494,9 +516,11 @@ export function useFriendule() {
 
   const deleteEvent = async () => {
     if (!editor || editor.mode !== 'edit') return;
+    const ruleToDelete = rules.find(r => r.id === editor.id);
     try {
       await apiFetch('/rules/' + editor.id, { method: 'DELETE' });
       setRules(prev => prev.filter(r => r.id !== editor.id));
+      setLastAction({ type: 'delete', deleted: [ruleToDelete] });
       setEditor(null);
       flash('Removed');
     } catch (err) {
@@ -505,9 +529,11 @@ export function useFriendule() {
   };
 
   const deleteRule = async (id) => {
+    const ruleToDelete = rules.find(r => r.id === id);
     try {
       await apiFetch('/rules/' + id, { method: 'DELETE' });
       setRules(prev => prev.filter(r => r.id !== id));
+      setLastAction({ type: 'delete', deleted: [ruleToDelete] });
       flash('Removed');
     } catch (err) {
       flash('Delete failed: ' + err.message);
@@ -588,6 +614,64 @@ export function useFriendule() {
     setEditor(null);
     setDayDetail(null);
     setAddFriendModal(null);
+    setLastAction(null);
+  };
+
+  // Revert last action
+  const revertLastAction = () => {
+    if (!lastAction) return;
+    const { type } = lastAction;
+    const affectedRules = type === 'create'
+      ? lastAction.created
+      : type === 'delete'
+      ? lastAction.deleted
+      : lastAction.changes.map(c => c.before);
+
+    setConfirmDialog({
+      intent: 'revert',
+      revertType: type,
+      affectedRules,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          if (type === 'create') {
+            for (const rule of lastAction.created) {
+              await apiFetch('/rules/' + rule.id, { method: 'DELETE' });
+              setRules(prev => prev.filter(r => r.id !== rule.id));
+            }
+            flash('Reverted — rule' + (lastAction.created.length > 1 ? 's' : '') + ' removed');
+          } else if (type === 'delete') {
+            for (const rule of lastAction.deleted) {
+              const body = {
+                friendId: rule.friendId, title: rule.title, status: rule.status,
+                allDay: rule.allDay, timeStart: rule.timeStart, timeEnd: rule.timeEnd,
+                recurrence: rule.recurrence, weekdays: rule.weekdays, date: rule.date,
+                dateFrom: rule.dateFrom, dateTo: rule.dateTo, rawText: rule.rawText || '',
+              };
+              const created = await apiFetch('/rules', { method: 'POST', body: JSON.stringify(body) });
+              setRules(prev => [...prev, created]);
+            }
+            flash('Reverted — rule' + (lastAction.deleted.length > 1 ? 's' : '') + ' restored');
+          } else if (type === 'update') {
+            for (const { id, before } of lastAction.changes) {
+              const body = {
+                friendId: before.friendId, title: before.title, status: before.status,
+                allDay: before.allDay, timeStart: before.timeStart, timeEnd: before.timeEnd,
+                recurrence: before.recurrence, weekdays: before.weekdays, date: before.date,
+                dateFrom: before.dateFrom, dateTo: before.dateTo, rawText: before.rawText || '',
+              };
+              const updated = await apiFetch('/rules/' + id, { method: 'PUT', body: JSON.stringify(body) });
+              setRules(prev => prev.map(r => r.id === id ? updated : r));
+            }
+            flash('Reverted — rule' + (lastAction.changes.length > 1 ? 's' : '') + ' restored to previous state');
+          }
+          setLastAction(null);
+        } catch (err) {
+          flash('Revert failed: ' + err.message);
+        }
+      },
+      onCancel: () => setConfirmDialog(null),
+    });
   };
 
   // Day detail
@@ -621,7 +705,14 @@ export function useFriendule() {
     submitAuth, logout,
     tab, view, friendIdx, cursor, prompt, editor, dayDetail, friendDay, toast, addFriendModal, everyoneFilter,
     friends, regularFriends, personalFriend, effectiveFriend, rules, cur, friend, loading,
-    parsing, clarification, setClarification, confirmDialog, transcribe,
+    parsing, clarification, lastAction, revertLastAction,
+    confirmClarification: (answer) => {
+      const combined = clarification.originalPrompt + '\n' + answer;
+      setClarification(null);
+      commitPrompt(combined);
+    },
+    dismissClarification: () => setClarification(null),
+    confirmDialog, transcribe,
     goFriends, goEveryone, goPersonal, setMonthView, setWeekView,
     prevFriend, nextFriend, pickFriend, goToday, prevPeriod, nextPeriod,
     setPrompt, commitPrompt,

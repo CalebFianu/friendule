@@ -50,6 +50,10 @@ export function expandRules(rules, friendZone, viewerZone, rangeStart, rangeEnd)
 }
 
 function matchesDay(rule, isoDate, weekdaySun) {
+  // Check optional date bounds for recurring rules
+  if (rule.dateFrom && isoDate < rule.dateFrom) return false;
+  if (rule.dateTo   && isoDate > rule.dateTo)   return false;
+
   switch (rule.recurrence) {
     case 'once':
       return rule.date === isoDate;

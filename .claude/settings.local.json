@@ -16,7 +16,15 @@
       "Bash(python -m json.tool)",
       "Bash(curl:*)",
       "Bash(npm uninstall:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(npx jest:*)",
+      "Bash(npm run:*)",
+      "Bash(npx eslint:*)",
+      "Bash(cat backend/__tests__/*.test.js)",
+      "Bash(npm audit:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(k,v.get\\('severity','?'\\),v.get\\('via',['']\\)[0] if isinstance\\(v.get\\('via',['']\\)[0],str\\) else v.get\\('via',['']\\)[0].get\\('title','?'\\)\\) for k,v in d.get\\('vulnerabilities',{}\\).items\\(\\)]\")",
+      "Bash(python3 \"C:\\\\Users\\\\Caleb\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"social calendar SaaS scheduling friends minimal technical\" --design-system -p \"Friendule\")",
+      "Bash(python \"C:\\\\Users\\\\Caleb\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"social calendar SaaS scheduling friends minimal technical\" --design-system -p \"Friendule\")"
     ]
   }
 }

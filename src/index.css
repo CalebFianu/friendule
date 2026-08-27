@@ -1,15 +1,217 @@
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;height:100%}
-body{font-family:"Nunito",system-ui,sans-serif;background:#FBF6F0;color:#3A322C;-webkit-font-smoothing:antialiased}
-#root{height:100%}
-::-webkit-scrollbar{width:10px;height:10px}
-::-webkit-scrollbar-thumb{background:#E6DACB;border-radius:999px;border:3px solid #FBF6F0}
-::-webkit-scrollbar-track{background:transparent}
-input,button,textarea,select{font-family:inherit}
-input::placeholder{color:#B6A99C}
+/* ============================================================
+   FRIENDULE — DESIGN SYSTEM TOKENS + GLOBAL STYLES
+   ============================================================ */
 
-@keyframes flin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
-@keyframes toastin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-@keyframes ovin{from{opacity:0}to{opacity:1}}
-@keyframes authslide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* === COLOR TOKENS === */
+:root {
+  --violet-50:  #f2f0ff;
+  --violet-100: #e6e2ff;
+  --violet-200: #cfc7ff;
+  --violet-300: #b0a2ff;
+  --violet-400: #8f7bfa;
+  --violet-500: #6c5ce7;
+  --violet-600: #5a48d6;
+  --violet-700: #4a39b3;
+  --violet-800: #3a2d8c;
+  --violet-900: #2a2166;
+
+  --slate-0:   #ffffff;
+  --slate-25:  #fbfbfe;
+  --slate-50:  #f6f6fb;
+  --slate-100: #eeeef4;
+  --slate-200: #e2e2ec;
+  --slate-300: #ccccda;
+  --slate-400: #a3a3b8;
+  --slate-500: #7a7a92;
+  --slate-600: #585870;
+  --slate-700: #3f3f54;
+  --slate-800: #282838;
+  --slate-900: #191924;
+  --slate-950: #101019;
+
+  --cat-violet-fill: #ece8ff;  --cat-violet-ink: #5a48d6;
+  --cat-blue-fill:   #e4f0ff;  --cat-blue-ink:   #2f6bd6;
+  --cat-mint-fill:   #dcf5ec;  --cat-mint-ink:   #1f8f68;
+  --cat-amber-fill:  #fdf0d8;  --cat-amber-ink:  #b47708;
+  --cat-rose-fill:   #ffe6ee;  --cat-rose-ink:   #d63b6e;
+  --cat-sage-fill:   #e7efe4;  --cat-sage-ink:   #4f7a45;
+
+  --success: #1f8f68;
+  --warning: #d98a0b;
+  --danger:  #e0466a;
+  --info:    #2f6bd6;
+
+  --bg-app:         var(--slate-50);
+  --bg-canvas:      #efeefb;
+  --surface-card:   var(--slate-0);
+  --surface-sunken: var(--slate-50);
+  --surface-hover:  var(--slate-100);
+  --surface-inset:  var(--slate-100);
+
+  --text-primary:   var(--slate-900);
+  --text-secondary: var(--slate-600);
+  --text-tertiary:  var(--slate-400);
+  --text-inverse:   var(--slate-0);
+  --text-brand:     var(--violet-600);
+
+  --border-subtle: var(--slate-200);
+  --border-strong: var(--slate-300);
+  --border-brand:  var(--violet-500);
+
+  --accent:       var(--violet-500);
+  --accent-hover: var(--violet-600);
+  --accent-press: var(--violet-700);
+  --accent-wash:  var(--violet-50);
+
+  --ink-strong:       var(--slate-900);
+  --ink-strong-hover: var(--slate-800);
+
+  --focus-ring: color-mix(in srgb, var(--violet-500) 45%, transparent);
+}
+
+[data-theme="dark"], .dark {
+  --bg-app:         var(--slate-950);
+  --bg-canvas:      #0c0c14;
+  --surface-card:   var(--slate-900);
+  --surface-sunken: var(--slate-950);
+  --surface-hover:  var(--slate-800);
+  --surface-inset:  var(--slate-800);
+
+  --text-primary:   #f3f3f8;
+  --text-secondary: #b4b4c6;
+  --text-tertiary:  #75758c;
+  --text-inverse:   var(--slate-950);
+  --text-brand:     var(--violet-300);
+
+  --border-subtle: #2b2b3c;
+  --border-strong: #3a3a4f;
+  --border-brand:  var(--violet-400);
+
+  --accent:       var(--violet-400);
+  --accent-hover: var(--violet-300);
+  --accent-press: var(--violet-200);
+  --accent-wash:  color-mix(in srgb, var(--violet-500) 18%, transparent);
+
+  --ink-strong:       #f3f3f8;
+  --ink-strong-hover: #e0e0ec;
+
+  --cat-violet-fill: color-mix(in srgb, var(--violet-500) 26%, var(--slate-900));
+  --cat-violet-ink:  #c9beff;
+  --cat-blue-fill:   #16304f;  --cat-blue-ink:   #a9cbff;
+  --cat-mint-fill:   #103a2e;  --cat-mint-ink:   #8fe6c6;
+  --cat-amber-fill:  #3a2c0e;  --cat-amber-ink:  #f2c66a;
+  --cat-rose-fill:   #3d1626;  --cat-rose-ink:   #ffa6c4;
+  --cat-sage-fill:   #223020;  --cat-sage-ink:   #b3d6a6;
+
+  --focus-ring: color-mix(in srgb, var(--violet-400) 55%, transparent);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+/* === TYPOGRAPHY TOKENS === */
+:root {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+  --fw-extra:    800;
+
+  --fs-display: 2.5rem;
+  --fs-h1:      2rem;
+  --fs-h2:      1.5rem;
+  --fs-h3:      1.25rem;
+  --fs-title:   1.0625rem;
+  --fs-body:    0.9375rem;
+  --fs-sm:      0.8125rem;
+  --fs-xs:      0.75rem;
+  --fs-2xs:     0.6875rem;
+
+  --lh-tight:  1.1;
+  --lh-snug:   1.3;
+  --lh-normal: 1.5;
+
+  --ls-tight:  -0.02em;
+  --ls-normal: 0;
+  --ls-caps:   0.06em;
+
+  --text-display: var(--fw-extra) var(--fs-display)/var(--lh-tight) var(--font-sans);
+  --text-h1:      var(--fw-bold) var(--fs-h1)/var(--lh-tight) var(--font-sans);
+  --text-h2:      var(--fw-bold) var(--fs-h2)/var(--lh-snug) var(--font-sans);
+  --text-h3:      var(--fw-semibold) var(--fs-h3)/var(--lh-snug) var(--font-sans);
+  --text-body:    var(--fw-regular) var(--fs-body)/var(--lh-normal) var(--font-sans);
+}
+
+/* === SPACING / RADIUS / SHADOW / MOTION TOKENS === */
+:root {
+  --space-0:  0;
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  --radius-xs:  6px;
+  --radius-sm:  10px;
+  --radius-md:  14px;
+  --radius-lg:  20px;
+  --radius-xl:  28px;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(25, 25, 36, 0.05);
+  --shadow-sm: 0 2px 6px rgba(25, 25, 36, 0.06);
+  --shadow-md: 0 8px 24px rgba(25, 25, 36, 0.08);
+  --shadow-lg: 0 18px 46px rgba(25, 25, 36, 0.12);
+
+  --ring-width: 3px;
+
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast:    120ms;
+  --dur-base:    200ms;
+  --dur-slow:    320ms;
+}
+
+/* === GLOBAL RESET & BASE === */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+#root { height: 100%; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--bg-canvas);
+}
+::-webkit-scrollbar-track { background: transparent; }
+
+input, button, textarea, select { font-family: inherit; }
+input::placeholder { color: var(--text-tertiary); }
+
+/* === KEYFRAME ANIMATIONS === */
+@keyframes flin    { from { opacity: 0; transform: translateY(8px); }  to { opacity: 1; transform: none; } }
+@keyframes pop     { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes toastin { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ovin    { from { opacity: 0; }                              to { opacity: 1; } }
+@keyframes authslide { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+@keyframes pulse   { 0%, 100% { opacity: 1; transform: scale(1); }    50% { opacity: 0.35; transform: scale(0.8); } }
+@keyframes spin    { from { transform: rotate(0deg); }                 to { transform: rotate(360deg); } }
