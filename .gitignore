@@ -24,6 +24,9 @@ dist-ssr
 
 # Local planning notes
 plan.md
+mobile-port.md
+plans/mobile-port.md
+plans/
 
 # Editor directories and files
 .vscode/*
