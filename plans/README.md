@@ -14,6 +14,7 @@ and update your row when done.
 | [003](003-jwt-secret-guard.md) | Add startup guard that fails fast when `JWT_SECRET` is not set | P1 | S | — | TODO |
 | [004](004-conflict-date-bounds.md) | Fix conflict detection to respect `dateFrom`/`dateTo` bounds | P1 | S | — | TODO |
 | [005](005-cors-restrict.md) | Restrict CORS to the known frontend origin | P2 | S | — | TODO |
+| [006](006-adoption-features-roadmap.md) | Adoption features roadmap (demo mode, iCal import, find-a-time, digests, friend requests, templates, undo, hangouts, onboarding) | P1–P2 | M–XL | see plan | TODO |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED (reason)` | `REJECTED (reason)`
 
